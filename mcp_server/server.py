@@ -21,6 +21,7 @@ import os
 import json
 import tempfile
 import argparse
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mcp.server.fastmcp import FastMCP
 import yaml
+
+from mcp_server.config import Config
+from mcp_server.validators import ValidationError, validate_tool_inputs
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class _NoAliasDumper(yaml.Dumper):
@@ -102,9 +109,81 @@ def _build_jenkins_args(
 
 
 # ---------------------------------------------------------------------------
-# MCP Server
+# MCP Server Factory
 # ---------------------------------------------------------------------------
 
+# Global config and server instances (set during create_mcp_server)
+_config: Config | None = None
+_mcp: FastMCP | None = None
+
+
+def create_mcp_server(config: Config | None = None) -> FastMCP:
+    """Create and configure the MCP server.
+
+    Args:
+        config: Configuration object. If None, loads from environment.
+
+    Returns:
+        Configured FastMCP server instance
+    """
+    global _config, _mcp
+
+    if config is None:
+        config = Config.from_env()
+    
+    _config = config
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, config.log_level, logging.INFO),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger.info(f"Configuration loaded: transport={config.transport}, profile={config.profile}")
+
+    # Create MCP server with configuration
+    _mcp = FastMCP(
+        "devops-os",
+        instructions=(
+            "DevOps-OS MCP Server provides tools for generating DevOps automation "
+            "artifacts including GitHub Actions workflows, Jenkins pipelines, "
+            "Kubernetes manifests, and dev-container configurations."
+        ),
+    )
+
+    # Register tools on the new server instance
+    _register_tools(_mcp)
+
+    return _mcp
+
+
+def get_config() -> Config:
+    """Get the current configuration.
+
+    Returns:
+        Current Config instance
+
+    Raises:
+        RuntimeError: If server not yet created
+    """
+    if _config is None:
+        raise RuntimeError("Server not yet initialized. Call create_mcp_server() first.")
+    return _config
+
+
+def _register_tools(mcp: FastMCP) -> None:
+    """Register all tools on the given FastMCP instance."""
+    mcp.tool()(generate_github_actions_workflow)
+    mcp.tool()(generate_jenkins_pipeline)
+    mcp.tool()(generate_gitlab_ci_pipeline)
+    mcp.tool()(generate_k8s_config)
+    mcp.tool()(generate_argocd_config)
+    mcp.tool()(generate_sre_configs)
+    mcp.tool()(scaffold_devcontainer)
+    mcp.tool()(generate_unittest_config)
+
+
+# Initialize MCP server for backward compatibility with direct imports
+# This ensures `python -m mcp_server.server` still works
 mcp = FastMCP(
     "devops-os",
     instructions=(
@@ -129,6 +208,30 @@ def generate_github_actions_workflow(
     branches: str = "main",
     matrix: bool = False,
 ) -> str:
+    """Generate a GitHub Actions CI/CD workflow YAML.
+
+    Creates a complete or basic GitHub Actions workflow for Python, JavaScript,
+    Go, Java, or multi-language projects with optional Kubernetes deployment.
+
+    Args:
+        name: Application/workflow name (lowercase, alphanumeric + dashes)
+        workflow_type: 'basic' or 'complete' (default: 'complete')
+        languages: Comma-separated languages (python, javascript, go, java, rust)
+        kubernetes: Enable Kubernetes deployment stage (default: False)
+        k8s_method: 'kubectl' or 'kustomize' (default: 'kubectl')
+        branches: Trigger branch(es) (default: 'main')
+        matrix: Enable job matrix for multi-version testing (default: False)
+
+    Returns:
+        GitHub Actions workflow YAML as string
+
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    try:
+        validate_tool_inputs("generate_github_actions_workflow", name=name, languages=languages)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     """
     Generate a GitHub Actions CI/CD workflow YAML file.
 
@@ -186,20 +289,29 @@ def generate_jenkins_pipeline(
     k8s_method: str = "kubectl",
     parameters: bool = False,
 ) -> str:
-    """
-    Generate a Jenkins Declarative Pipeline (Jenkinsfile) as a string.
+    """Generate a Jenkins Declarative Pipeline (Jenkinsfile) as a string.
+
+    Creates a Jenkins pipeline for Python, JavaScript, Go, Java, or
+    multi-language projects with optional Kubernetes deployment.
 
     Args:
-        name: Pipeline / application name.
-        pipeline_type: One of 'build', 'test', 'deploy', 'complete', 'parameterized'.
-        languages: Comma-separated list of languages, e.g. 'python,java'.
-        kubernetes: Include a Kubernetes deployment stage.
-        k8s_method: Kubernetes deployment method — 'kubectl', 'kustomize', 'argocd', or 'flux'.
-        parameters: Add runtime parameters to the pipeline.
+        name: Pipeline/application name (lowercase, alphanumeric + dashes)
+        pipeline_type: 'build', 'test', 'deploy', 'complete', or 'parameterized'
+        languages: Comma-separated languages (python, javascript, go, java, rust)
+        kubernetes: Include Kubernetes deployment stage (default: False)
+        k8s_method: 'kubectl', 'kustomize', 'argocd', or 'flux' (default: 'kubectl')
+        parameters: Add runtime parameters to pipeline (default: False)
 
     Returns:
-        Generated Jenkinsfile content as a string.
+        Generated Jenkinsfile content as string
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        validate_tool_inputs("generate_jenkins_pipeline", name=name, languages=languages)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     from cli import scaffold_jenkins
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -242,21 +354,37 @@ def generate_k8s_config(
     deployment_method: str = "kubectl",
     expose_service: bool = True,
 ) -> str:
-    """
-    Generate Kubernetes deployment manifests.
+    """Generate Kubernetes deployment manifests.
+
+    Creates a Kubernetes Deployment with optional Service for a containerized
+    application. Supports kubectl, kustomize, Argo CD, and Flux deployment.
 
     Args:
-        app_name: Name of the application / Kubernetes resource.
-        image: Container image reference (registry/name:tag).
-        replicas: Number of pod replicas.
-        port: Container port to expose.
-        namespace: Kubernetes namespace to deploy into.
-        deployment_method: One of 'kubectl', 'kustomize', 'argocd', 'flux'.
-        expose_service: Create a ClusterIP Service alongside the Deployment.
+        app_name: Application name for Kubernetes resources (lowercase, alphanumeric + dashes)
+        image: Container image reference (e.g., ghcr.io/org/app:v1.0.0)
+        replicas: Number of pod replicas (1-100, default: 2)
+        port: Container port to expose (1-65535, default: 8080)
+        namespace: Kubernetes namespace (lowercase, alphanumeric + dashes, default: default)
+        deployment_method: 'kubectl', 'kustomize', 'argocd', or 'flux'
+        expose_service: Create ClusterIP Service (default: True)
 
     Returns:
-        Kubernetes YAML manifests as a single multi-document string.
+        Kubernetes YAML manifests as multi-document string
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        validate_tool_inputs(
+            "generate_k8s_config",
+            app_name=app_name,
+            image=image,
+            replicas=replicas,
+            port=port,
+            namespace=namespace,
+        )
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     labels = {"app": app_name}
     deployment = {
         "apiVersion": "apps/v1",
@@ -331,26 +459,34 @@ def scaffold_devcontainer(
     java_version: str = "17",
     go_version: str = "1.21",
 ) -> str:
-    """
-    Generate a devcontainer.json and devcontainer.env.json configuration.
+    """Generate a devcontainer.json and devcontainer.env.json configuration.
+
+    Creates a development container configuration for the specified languages,
+    CI/CD tools, and Kubernetes tools.
 
     Args:
-        languages: Comma-separated list of languages to install
-                   (python, java, javascript, typescript, go, rust, csharp,
-                    php, kotlin, c, cpp, ruby).
-        cicd_tools: Comma-separated list of CI/CD tools
-                    (docker, terraform, kubectl, helm, github_actions, jenkins).
-        kubernetes_tools: Comma-separated list of Kubernetes tools
-                          (k9s, kustomize, argocd_cli, lens, kubeseal, flux,
-                           kind, minikube, openshift_cli).
-        python_version: Python version (default '3.11').
-        node_version: Node.js version (default '20').
-        java_version: Java JDK version (default '17').
-        go_version: Go version (default '1.21').
+        languages: Comma-separated languages (python, java, javascript, typescript,
+                   go, rust, csharp, php, kotlin, c, cpp, ruby)
+        cicd_tools: Comma-separated CI/CD tools (docker, terraform, kubectl, helm,
+                    github_actions, jenkins)
+        kubernetes_tools: Comma-separated K8s tools (k9s, kustomize, argocd_cli,
+                          lens, kubeseal, flux, kind, minikube, openshift_cli)
+        python_version: Python version (default: 3.11)
+        node_version: Node.js version (default: 20)
+        java_version: Java JDK version (default: 17)
+        go_version: Go version (default: 1.21)
 
     Returns:
-        A JSON string with two keys: 'devcontainer_json' and 'devcontainer_env_json'.
+        JSON string with 'devcontainer_json' and 'devcontainer_env_json' keys
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        if languages:
+            validate_tool_inputs("scaffold_devcontainer", languages=languages)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     lang_list = [l.strip() for l in languages.split(",") if l.strip()]
     cicd_list = [t.strip() for t in cicd_tools.split(",") if t.strip()]
     k8s_list = [t.strip() for t in kubernetes_tools.split(",") if t.strip()]
@@ -436,20 +572,29 @@ def generate_gitlab_ci_pipeline(
     k8s_method: str = "kubectl",
     branches: str = "main",
 ) -> str:
-    """
-    Generate a GitLab CI pipeline (.gitlab-ci.yml) as a YAML string.
+    """Generate a GitLab CI pipeline (.gitlab-ci.yml) as a YAML string.
+
+    Creates a GitLab CI/CD pipeline for Python, JavaScript, Go, Java, or
+    multi-language projects with optional Kubernetes deployment.
 
     Args:
-        name: Application name (used in variable APP_NAME and image tags).
-        pipeline_type: One of 'build', 'test', 'deploy', 'complete'.
-        languages: Comma-separated list of languages, e.g. 'python,javascript,go,java'.
-        kubernetes: Include a Kubernetes deployment stage.
-        k8s_method: Kubernetes deployment method — 'kubectl', 'kustomize', 'argocd', or 'flux'.
-        branches: Comma-separated list of branches that trigger deploy jobs.
+        name: Application name for variable APP_NAME and image tags
+        pipeline_type: 'build', 'test', 'deploy', or 'complete'
+        languages: Comma-separated languages (python, javascript, go, java, rust)
+        kubernetes: Include Kubernetes deployment stage (default: False)
+        k8s_method: 'kubectl', 'kustomize', 'argocd', or 'flux' (default: kubectl)
+        branches: Comma-separated trigger branches (default: main)
 
     Returns:
-        Generated .gitlab-ci.yml content as a YAML string.
+        Generated .gitlab-ci.yml content as YAML string
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        validate_tool_inputs("generate_gitlab_ci_pipeline", name=name, languages=languages)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     from cli import scaffold_gitlab
     import yaml
 
@@ -486,25 +631,33 @@ def generate_argocd_config(
     allow_any_source_repo: bool = False,
     image: str = "ghcr.io/myorg/my-app",
 ) -> str:
-    """
-    Generate ArgoCD Application + AppProject CRs, or Flux Kustomization resources.
+    """Generate ArgoCD Application + AppProject CRs, or Flux Kustomization resources.
+
+    Creates GitOps configurations for Argo CD or Flux CD based on Git repositories.
 
     Args:
-        name: Application name.
-        method: GitOps tool — 'argocd' or 'flux'.
-        repo: Git repository URL containing the Kubernetes manifests.
-        revision: Git revision / branch / tag to sync (default 'HEAD').
-        path: Path inside the repo to the manifests directory.
-        namespace: Kubernetes namespace to deploy into.
-        project: ArgoCD project name.
-        auto_sync: Enable ArgoCD automated sync (prune + self-heal).
-        rollouts: Add an Argo Rollouts canary Rollout resource.
-        allow_any_source_repo: Allow AppProject sourceRepos wildcard ('*').
-        image: Container image for Flux image automation.
+        name: Application name (lowercase, alphanumeric + dashes)
+        method: GitOps tool 'argocd' or 'flux' (default: argocd)
+        repo: Git repository URL with Kubernetes manifests (not validated as URL)
+        revision: Git revision/branch/tag to sync (default: HEAD)
+        path: Path in repo to manifests directory (default: k8s)
+        namespace: Kubernetes namespace (lowercase, alphanumeric + dashes, default: default)
+        project: ArgoCD project name (lowercase, alphanumeric + dashes, default: default)
+        auto_sync: Enable ArgoCD automated sync (default: False)
+        rollouts: Add Argo Rollouts canary Rollout (default: False)
+        allow_any_source_repo: Allow AppProject sourceRepos wildcard (default: False)
+        image: Container image for Flux image automation
 
     Returns:
-        JSON string with generated YAML documents keyed by filename.
+        JSON string with generated YAML documents keyed by filename
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        validate_tool_inputs("generate_argocd_config", name=name, namespace=namespace)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     from cli import scaffold_argocd
     import yaml as _yaml
 
@@ -548,23 +701,35 @@ def generate_sre_configs(
     latency_threshold: float = 0.5,
     slack_channel: str = "#alerts",
 ) -> str:
-    """
-    Generate SRE configuration files: Prometheus alert rules, Grafana dashboard,
-    SLO manifest, and Alertmanager routing config.
+    """Generate SRE configuration files: Prometheus alerts, Grafana dashboards, and SLOs.
+
+    Creates observability and reliability configurations for a Kubernetes service.
 
     Args:
-        name: Application / service name.
-        team: Owning team (used in alert labels and routing).
-        namespace: Kubernetes namespace where the app runs.
-        slo_type: Which SLOs to generate — 'availability', 'latency', 'error_rate', or 'all'.
-        slo_target: SLO target percentage, e.g. 99.9.
-        latency_threshold: Latency SLI threshold in seconds (default 0.5).
-        slack_channel: Slack channel for alert routing.
+        name: Service name (lowercase, alphanumeric + dashes)
+        team: Owning team for alerts and routing (lowercase, alphanumeric + dashes)
+        namespace: Kubernetes namespace (lowercase, alphanumeric + dashes, default: default)
+        slo_type: 'availability', 'latency', 'error_rate', or 'all' (default: all)
+        slo_target: SLO target percentage, 50.0-99.99 (default: 99.9)
+        latency_threshold: Latency SLI threshold in seconds (default: 0.5)
+        slack_channel: Slack channel for alert routing (default: #alerts)
 
     Returns:
-        JSON string with keys 'alert_rules_yaml', 'grafana_dashboard_json',
-        'slo_yaml', 'alertmanager_config_yaml'.
+        JSON string with keys: alert_rules_yaml, grafana_dashboard_json, slo_yaml, alertmanager_config_yaml
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        validate_tool_inputs(
+            "generate_sre_configs",
+            name=name,
+            team=team,
+            namespace=namespace,
+            slo_target=slo_target,
+        )
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     from cli import scaffold_sre
     import yaml as _yaml
 
@@ -603,24 +768,27 @@ def generate_unittest_config(
     framework: str = "",
     coverage: bool = True,
 ) -> str:
-    """
-    Generate unit testing configuration and sample test files for the given tech stack.
+    """Generate unit testing configuration and sample test files.
 
-    Supported languages and their default frameworks:
-      - python       → pytest + pytest-cov
-      - javascript   → Jest  (override: jest | mocha | vitest)
-      - typescript   → Jest  (override: jest | mocha | vitest)
-      - go           → go test
+    Creates testing setup files for Python (pytest), JavaScript/TypeScript
+    (Jest/Mocha/Vitest), and Go (go test).
 
     Args:
-        name: Project / application name.
-        languages: Comma-separated languages (python, javascript, typescript, go).
-        framework: Testing framework override (empty = auto-select per language).
-        coverage: Include coverage configuration.
+        name: Project name (lowercase, alphanumeric + dashes)
+        languages: Comma-separated languages (python, javascript, typescript, go)
+        framework: Testing framework override (empty = auto-select per language)
+        coverage: Include coverage configuration (default: True)
 
     Returns:
-        JSON string with file names as keys and generated file contents as values.
+        JSON string with file names as keys and generated file contents as values
+
+    Raises:
+        ValueError: If inputs are invalid
     """
+    try:
+        validate_tool_inputs("generate_unittest_config", project_name=name, languages=languages)
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
     from cli import scaffold_unittest
 
     result = {}
@@ -663,9 +831,41 @@ def generate_unittest_config(
     return json.dumps(result, indent=2)
 
 
+# Register tools on the backward-compatibility instance
+_register_tools(mcp)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+    
+    try:
+        # Load configuration from environment (or use defaults for stdio)
+        config = Config.from_env()
+        logger.info(f"Starting MCP server with config: transport={config.transport}, profile={config.profile}")
+        
+        # Run with the appropriate transport
+        if config.transport == "stdio":
+            mcp.run(transport="stdio")
+        elif config.transport == "sse":
+            mcp.run(transport="sse", mount_path=config.mcp_endpoint)
+        elif config.transport == "streamable-http":
+            # For HTTP transport, FastMCP handles host/port configuration
+            mcp.run(
+                transport="streamable-http",
+                mount_path=config.mcp_endpoint,
+            )
+        else:
+            raise ValueError(f"Unknown transport: {config.transport}")
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}", exc_info=True)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("Shutting down")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        sys.exit(1)
