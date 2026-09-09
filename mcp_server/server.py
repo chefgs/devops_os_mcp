@@ -33,9 +33,11 @@ import yaml
 
 from mcp_server.config import Config
 from mcp_server.validators import ValidationError, validate_tool_inputs
+from mcp_server.logging import get_logger, CorrelationContext
+from mcp_server.auth import create_token_verifier
 
-# Configure logging
-logger = logging.getLogger(__name__)
+# Use structured logger instead of standard logging
+logger = get_logger(__name__)
 
 
 class _NoAliasDumper(yaml.Dumper):
@@ -845,27 +847,62 @@ if __name__ == "__main__":
     try:
         # Load configuration from environment (or use defaults for stdio)
         config = Config.from_env()
-        logger.info(f"Starting MCP server with config: transport={config.transport}, profile={config.profile}")
         
-        # Run with the appropriate transport
+        # Log startup configuration (redacted)
+        logger.log_startup(
+            transport=config.transport,
+            profile=config.profile,
+            port=config.port if config.transport in ("sse", "streamable-http") else None,
+        )
+        
+        # For stdio (local), use the global mcp instance
         if config.transport == "stdio":
             mcp.run(transport="stdio")
-        elif config.transport == "sse":
-            mcp.run(transport="sse", mount_path=config.mcp_endpoint)
-        elif config.transport == "streamable-http":
-            # For HTTP transport, FastMCP handles host/port configuration
-            mcp.run(
-                transport="streamable-http",
+        
+        # For HTTP transports, create a new instance with auth configuration
+        elif config.transport in ("sse", "streamable-http"):
+            # Create token verifier based on profile
+            try:
+                token_verifier = create_token_verifier(
+                    profile=config.profile,
+                    jwt_issuer=config.jwt_issuer,
+                    jwt_audience=config.jwt_audience,
+                    jwt_jwks_url=config.jwt_jwks_url,
+                )
+            except ValueError as e:
+                logger.error(f"Authentication configuration error: {e}")
+                sys.exit(1)
+            
+            # Create a new FastMCP instance with authentication
+            http_mcp = FastMCP(
+                name="devops-os",
+                instructions="DevOps Configuration Generator",
+                host=config.host,
+                port=config.port,
+                streamable_http_path=config.mcp_endpoint,
+                token_verifier=token_verifier,
+                max_request_body_size=config.request_size_bytes,
+                log_level=config.log_level,
+            )
+            
+            # Register all tools on the HTTP instance
+            _register_tools(http_mcp)
+            
+            # Run with the selected transport
+            http_mcp.run(
+                transport=config.transport,
                 mount_path=config.mcp_endpoint,
             )
+        
         else:
             raise ValueError(f"Unknown transport: {config.transport}")
+    
     except ValueError as e:
-        logger.error(f"Configuration error: {e}", exc_info=True)
+        logger.error(f"Configuration error: {e}")
         sys.exit(1)
     except KeyboardInterrupt:
-        logger.info("Shutting down")
+        logger.log_shutdown(reason="keyboard_interrupt")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error(f"Unexpected error: {e}")
         sys.exit(1)

@@ -26,6 +26,7 @@ class Config:
                          (default: 'local')
     - DEVOPS_OS_JWT_ISSUER: JWT issuer URL (required in remote profile)
     - DEVOPS_OS_JWT_AUDIENCE: JWT audience/resource (required in remote profile)
+    - DEVOPS_OS_JWT_JWKS_URL: JWKS endpoint URL (optional, derived from issuer if not set)
     - DEVOPS_OS_JWT_ALGORITHMS: Comma-separated JWT algorithms (default: 'RS256,ES256')
     """
 
@@ -51,6 +52,7 @@ class Config:
     # Authentication (remote profile)
     jwt_issuer: str | None = None
     jwt_audience: str | None = None
+    jwt_jwks_url: str | None = None
     jwt_algorithms: list[str] = field(default_factory=lambda: ["RS256", "ES256"])
 
     def __post_init__(self):
@@ -121,6 +123,7 @@ class Config:
 
         jwt_issuer = os.getenv("DEVOPS_OS_JWT_ISSUER")
         jwt_audience = os.getenv("DEVOPS_OS_JWT_AUDIENCE")
+        jwt_jwks_url = os.getenv("DEVOPS_OS_JWT_JWKS_URL")
         jwt_algorithms_str = os.getenv("DEVOPS_OS_JWT_ALGORITHMS", "RS256,ES256")
         jwt_algorithms = [a.strip() for a in jwt_algorithms_str.split(",") if a.strip()]
 
@@ -136,5 +139,6 @@ class Config:
             profile=profile,
             jwt_issuer=jwt_issuer,
             jwt_audience=jwt_audience,
+            jwt_jwks_url=jwt_jwks_url,
             jwt_algorithms=jwt_algorithms,
         )
