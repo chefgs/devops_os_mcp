@@ -861,29 +861,36 @@ if __name__ == "__main__":
         
         # For HTTP transports, create a new instance with auth configuration
         elif config.transport in ("sse", "streamable-http"):
-            # Create token verifier based on profile
-            try:
-                token_verifier = create_token_verifier(
-                    profile=config.profile,
-                    jwt_issuer=config.jwt_issuer,
-                    jwt_audience=config.jwt_audience,
-                    jwt_jwks_url=config.jwt_jwks_url,
-                )
-            except ValueError as e:
-                logger.error(f"Authentication configuration error: {e}")
-                sys.exit(1)
+            # Create token verifier based on profile (only for remote)
+            token_verifier = None
+            if config.profile == "remote":
+                try:
+                    token_verifier = create_token_verifier(
+                        profile=config.profile,
+                        jwt_issuer=config.jwt_issuer,
+                        jwt_audience=config.jwt_audience,
+                        jwt_jwks_url=config.jwt_jwks_url,
+                    )
+                except ValueError as e:
+                    logger.error(f"Authentication configuration error: {e}")
+                    sys.exit(1)
             
-            # Create a new FastMCP instance with authentication
-            http_mcp = FastMCP(
-                name="devops-os",
-                instructions="DevOps Configuration Generator",
-                host=config.host,
-                port=config.port,
-                streamable_http_path=config.mcp_endpoint,
-                token_verifier=token_verifier,
-                max_request_body_size=config.request_size_bytes,
-                log_level=config.log_level,
-            )
+            # Create a new FastMCP instance (auth only if remote profile)
+            http_mcp_kwargs = {
+                "name": "devops-os",
+                "instructions": "DevOps Configuration Generator",
+                "host": config.host,
+                "port": config.port,
+                "streamable_http_path": config.mcp_endpoint,
+                "max_request_body_size": config.request_size_bytes,
+                "log_level": config.log_level,
+            }
+            
+            # Only add token_verifier if remote profile
+            if token_verifier is not None:
+                http_mcp_kwargs["token_verifier"] = token_verifier
+            
+            http_mcp = FastMCP(**http_mcp_kwargs)
             
             # Register all tools on the HTTP instance
             _register_tools(http_mcp)
