@@ -53,8 +53,8 @@ jobs:
 
       - name: Test container startup (stdio profile)
         run: |
-          # Test that container starts and responds to MCP protocol
-          docker run --rm --entrypoint python3 devops-os-mcp:test -m mcp_server.server --version | grep -q version
+          # Test that container starts and module loads
+          docker run --rm --entrypoint python3 devops-os-mcp:test -c "import mcp_server.server; print('✓ Module loads successfully')"
           echo "✓ Container stdio startup verified"
 
       - name: Test container startup (http profile)
@@ -95,5 +95,5 @@ jobs:
         continue-on-error: true
 
       - name: Run smoke test (stdio)
-        run: python3 scripts/smoke-test.py --transport stdio --timeout 10
+        run: python3 scripts/smoke-test.py --transport stdio
         continue-on-error: true

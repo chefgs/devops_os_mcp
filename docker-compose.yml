@@ -79,11 +79,3 @@ services:
     profiles:
       - remote
       - all
-
-volumes:
-  tmp-stdio:
-    driver: local
-  tmp-http:
-    driver: local
-  tmp-remote:
-    driver: local

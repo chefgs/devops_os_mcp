@@ -8,7 +8,6 @@ WORKDIR /build
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy application source and requirements

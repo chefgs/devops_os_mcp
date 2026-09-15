@@ -126,7 +126,7 @@ class JWTTokenVerifier(TokenVerifier):
                     decoded = jwt.decode(
                         token,
                         jwks_client.get_signing_key_from_jwt(token).key,
-                        algorithms=["RS256", "RS384", "RS512", "HS256"],
+                        algorithms=["RS256", "RS384", "RS512"],
                         audience=self.audience,
                         issuer=self.issuer,
                         options={"verify_signature": True},
@@ -166,7 +166,7 @@ class JWTTokenVerifier(TokenVerifier):
                     decoded = jwt.decode(
                         token,
                         key,
-                        algorithms=["RS256", "RS384", "RS512", "HS256"],
+                        algorithms=["RS256", "RS384", "RS512"],
                         audience=self.audience,
                         issuer=self.issuer,
                     )
