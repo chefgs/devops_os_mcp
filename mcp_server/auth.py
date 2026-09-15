@@ -102,6 +102,7 @@ class JWTTokenVerifier(TokenVerifier):
             # Try using PyJWT first, fall back to python-jose
             try:
                 import jwt
+                from jwt import PyJWKClient
                 use_jwt = True
             except ImportError:
                 try:
@@ -114,48 +115,67 @@ class JWTTokenVerifier(TokenVerifier):
                     )
                     return None
 
-            # Fetch public keys
-            jwks = await self._fetch_jwks()
-
-            # Decode and validate token
+            # Decode and validate token with proper signature verification
             if use_jwt:
-                # Using PyJWT
-                decoded = jwt.decode(
-                    token,
-                    options={"verify_signature": False},  # Verify manually with JWKS
-                )
-            else:
-                # Using python-jose (doesn't verify signature in unverified_decode)
-                decoded = jwt.get_unverified_claims(token)
-
-            # Validate required claims
-            if decoded.get("iss") != self.issuer:
-                logger.log_auth_failure(
-                    f"Issuer mismatch: expected {self.issuer}, got {decoded.get('iss')}",
-                    transport="http"
-                )
-                return None
-
-            if decoded.get("aud") != self.audience:
-                logger.log_auth_failure(
-                    f"Audience mismatch: expected {self.audience}, got {decoded.get('aud')}",
-                    transport="http"
-                )
-                return None
-
-            # Check expiration
-            exp = decoded.get("exp")
-            if exp:
-                import time
-                if time.time() > exp:
+                # Using PyJWT with JWKS
+                try:
+                    # Create JWKS client for signature verification
+                    jwks_client = PyJWKClient(self.jwks_url, cache_keys=True, max_cached_keys=16)
+                    
+                    # Decode with full validation
+                    decoded = jwt.decode(
+                        token,
+                        jwks_client.get_signing_key_from_jwt(token).key,
+                        algorithms=["RS256", "RS384", "RS512", "HS256"],
+                        audience=self.audience,
+                        issuer=self.issuer,
+                        options={"verify_signature": True},
+                    )
+                except Exception as e:
                     logger.log_auth_failure(
-                        "Token expired",
+                        f"JWT signature verification failed: {str(e)}",
                         transport="http"
                     )
                     return None
-
-            # Validate signature (simplified - in production use proper verification)
-            # TODO: Validate against JWKS keys when python-jose or PyJWT supports it properly
+            else:
+                # Using python-jose
+                try:
+                    # Fetch and use JWKS
+                    jwks = await self._fetch_jwks()
+                    decoded = jwt.get_unverified_claims(token)
+                    
+                    # Get key ID from token header
+                    header = jwt.get_unverified_header(token)
+                    kid = header.get("kid")
+                    
+                    # Find matching key in JWKS
+                    key = None
+                    for k in jwks.get("keys", []):
+                        if k.get("kid") == kid or kid is None:
+                            key = k
+                            break
+                    
+                    if not key:
+                        logger.log_auth_failure(
+                            "No matching key in JWKS",
+                            transport="http"
+                        )
+                        return None
+                    
+                    # Verify token with the key
+                    decoded = jwt.decode(
+                        token,
+                        key,
+                        algorithms=["RS256", "RS384", "RS512", "HS256"],
+                        audience=self.audience,
+                        issuer=self.issuer,
+                    )
+                except Exception as e:
+                    logger.log_auth_failure(
+                        f"JWT validation failed: {str(e)}",
+                        transport="http"
+                    )
+                    return None
             
             # Return AccessToken
             return AccessToken(

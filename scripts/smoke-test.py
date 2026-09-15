@@ -14,6 +14,7 @@ Usage:
 """
 
 import sys
+import os
 import json
 import argparse
 import subprocess
@@ -52,9 +53,10 @@ class SmokeTest:
         print("[*] Starting MCP server on stdio...")
         
         # Start the server as a subprocess
+        env = {**os.environ, "DEVOPS_OS_TRANSPORT": "stdio"}
         process = subprocess.Popen(
             [sys.executable, "-m", "mcp_server.server"],
-            env={"DEVOPS_OS_TRANSPORT": "stdio"},
+            env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

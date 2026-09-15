@@ -15,9 +15,9 @@ try:
     from mcp import ClientSession
     from mcp.client.stdio import StdioClientTransport
     from mcp.types import InitializeResult, Tool
-    HTTPX_AVAILABLE = True
+    MCP_SDK_AVAILABLE = True
 except ImportError:
-    HTTPX_AVAILABLE = False
+    MCP_SDK_AVAILABLE = False
 
 # For HTTP testing, we'll use httpx to simulate an HTTP client
 import httpx
@@ -458,7 +458,7 @@ class TestLoggingIntegration:
         assert "<" in redacted["jwt_secret"]  # Redaction marker
 
 
-@pytest.mark.skipif(not HTTPX_AVAILABLE, reason="MCP client not available")
+@pytest.mark.skipif(not MCP_SDK_AVAILABLE, reason="MCP client not available")
 class TestMCPSDKClient:
     """Tests using real MCP SDK client (if available)."""
 

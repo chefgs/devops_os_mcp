@@ -234,21 +234,7 @@ def generate_github_actions_workflow(
         validate_tool_inputs("generate_github_actions_workflow", name=name, languages=languages)
     except ValidationError as e:
         raise ValueError(str(e)) from e
-    """
-    Generate a GitHub Actions CI/CD workflow YAML file.
-
-    Args:
-        name: Workflow / application name (used in filename and job names).
-        workflow_type: One of 'build', 'test', 'deploy', 'complete', 'reusable'.
-        languages: Comma-separated list of languages, e.g. 'python,javascript,go,java'.
-        kubernetes: Include a Kubernetes deployment stage.
-        k8s_method: Kubernetes deployment method — 'kubectl', 'kustomize', 'argocd', or 'flux'.
-        branches: Comma-separated list of trigger branches (default 'main').
-        matrix: Enable matrix builds across platforms.
-
-    Returns:
-        Generated GitHub Actions workflow as a YAML string.
-    """
+    
     from cli import scaffold_gha
 
     with tempfile.TemporaryDirectory() as tmp:

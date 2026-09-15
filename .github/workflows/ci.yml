@@ -61,7 +61,8 @@ jobs:
         run: |
           # Start container and verify health endpoint responds
           docker run -d --name devops-os-test -p 127.0.0.1:8000:8000 \
-            -e DEVOPS_OS_PROFILE=http \
+            -e DEVOPS_OS_PROFILE=local \
+            -e DEVOPS_OS_TRANSPORT=streamable-http \
             devops-os-mcp:test &
           
           # Wait for startup
