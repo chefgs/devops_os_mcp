@@ -25,6 +25,18 @@ DevOps-OS exposes all its pipeline automation tools as an **MCP (Model Context P
 
 ## MCP Server
 
+### Quick Start
+
+Get DevOps-OS running as an MCP server in **Claude Desktop in 5 minutes**:
+
+1. **[MCP Quick Start Guide]({{< relref "/docs/getting-started/mcp-quickstart" >}})** — Clone, install, configure, and generate
+
+### Detailed Setup
+
+For detailed setup including **ChatGPT, HTTP endpoints, authentication, and production deployment**:
+
+2. **[MCP Setup & Configuration]({{< relref "/docs/ai-integration/mcp-setup" >}})** — Complete reference guide with troubleshooting
+
 ### Installation
 
 ```bash
@@ -39,6 +51,9 @@ python -m mcp_server.server
 
 # Or directly
 python mcp_server/server.py
+
+# For HTTP endpoint (ChatGPT, remote clients)
+DEVOPS_OS_TRANSPORT=streamable-http python -m mcp_server.server
 ```
 
 ### Connecting to Claude Desktop
