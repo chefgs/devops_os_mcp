@@ -35,6 +35,7 @@ LABEL org.opencontainers.image.version="1.0.0"
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="/app:$PYTHONPATH" \
     DEVOPS_OS_PROFILE="local" \
     DEVOPS_OS_TRANSPORT="streamable-http" \
     DEVOPS_OS_HOST="0.0.0.0" \
@@ -54,15 +55,16 @@ COPY --from=builder --chown=devops-os:devops-os /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=devops-os:devops-os mcp_server /app/mcp_server
 COPY --chown=devops-os:devops-os cli /app/cli
-COPY --chown=devops-os:devops-os .mcp.json /app/.mcp.json 2>/dev/null || true
+COPY --chown=devops-os:devops-os scripts /app/scripts
+COPY --chown=devops-os:devops-os docs /app/docs
 
 # Create temporary directory with size limits and set permissions
 RUN mkdir -p /tmp/devops-os && \
     chown -R devops-os:devops-os /tmp/devops-os && \
     chmod 1777 /tmp/devops-os
 
-# Make application root directory readable only by devops-os user
-RUN chmod 750 /app
+# Make application root directory readable/executable by devops-os user
+RUN chmod 755 /app
 
 # Create .local directory for user
 RUN mkdir -p /home/devops-os/.local && \
@@ -71,9 +73,9 @@ RUN mkdir -p /home/devops-os/.local && \
 # Switch to non-root user
 USER devops-os
 
-# Healthcheck: verify server is responding
+# Healthcheck: verify server is responding on the configured port
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python3 -c "import socket; socket.create_connection(('localhost', ${DEVOPS_OS_PORT}), timeout=2)" || exit 1
+    CMD python3 -c "import socket; socket.create_connection(('localhost', 8000), timeout=2)" || exit 1
 
 # Run MCP server
 ENTRYPOINT ["python3", "-m", "mcp_server.server"]
