@@ -24,9 +24,10 @@ from pathlib import Path
 try:
     from mcp import ClientSession
     from mcp.client.stdio import StdioClientTransport
-    from mcp.client.sse import SSEClientTransport
-except ImportError:
-    print("ERROR: MCP SDK not installed. Install with: pip install mcp")
+    from mcp.client.streamable_http import StreamableHTTPTransport
+except ImportError as e:
+    print(f"ERROR: MCP SDK not installed. Install with: pip install mcp")
+    print(f"Details: {e}")
     sys.exit(1)
 
 # Try to import httpx (for HTTP client)
