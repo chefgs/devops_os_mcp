@@ -856,6 +856,7 @@ if __name__ == "__main__":
                         jwt_issuer=config.jwt_issuer,
                         jwt_audience=config.jwt_audience,
                         jwt_jwks_url=config.jwt_jwks_url,
+                        jwt_algorithms=config.jwt_algorithms,
                     )
                 except ValueError as e:
                     logger.error(f"Authentication configuration error: {e}")

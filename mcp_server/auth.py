@@ -47,6 +47,7 @@ class JWTTokenVerifier(TokenVerifier):
         audience: str,
         jwks_url: Optional[str] = None,
         key_cache_ttl_seconds: int = 3600,
+        jwt_algorithms: Optional[list[str]] = None,
     ):
         """Initialize JWT verifier.
         
@@ -55,11 +56,13 @@ class JWTTokenVerifier(TokenVerifier):
             audience: Expected JWT audience (e.g., devops-os-service)
             jwks_url: URL to fetch public keys from (if None, will construct from issuer)
             key_cache_ttl_seconds: How long to cache JWKS keys
+            jwt_algorithms: Allowed JWT algorithms (defaults to ["RS256", "ES256"])
         """
         self.issuer = issuer
         self.audience = audience
         self.jwks_url = jwks_url or self._construct_jwks_url(issuer)
         self.key_cache_ttl_seconds = key_cache_ttl_seconds
+        self.jwt_algorithms = jwt_algorithms or ["RS256", "ES256"]
         
         # Cache for JWKS keys
         self._jwks_cache: Optional[Dict[str, Any]] = None
@@ -126,7 +129,7 @@ class JWTTokenVerifier(TokenVerifier):
                     decoded = jwt.decode(
                         token,
                         jwks_client.get_signing_key_from_jwt(token).key,
-                        algorithms=["RS256", "RS384", "RS512"],
+                        algorithms=self.jwt_algorithms,
                         audience=self.audience,
                         issuer=self.issuer,
                         options={"verify_signature": True},
@@ -142,7 +145,6 @@ class JWTTokenVerifier(TokenVerifier):
                 try:
                     # Fetch and use JWKS
                     jwks = await self._fetch_jwks()
-                    decoded = jwt.get_unverified_claims(token)
                     
                     # Get key ID from token header
                     header = jwt.get_unverified_header(token)
@@ -166,7 +168,7 @@ class JWTTokenVerifier(TokenVerifier):
                     decoded = jwt.decode(
                         token,
                         key,
-                        algorithms=["RS256", "RS384", "RS512"],
+                        algorithms=self.jwt_algorithms,
                         audience=self.audience,
                         issuer=self.issuer,
                     )
@@ -198,6 +200,7 @@ def create_token_verifier(
     jwt_issuer: Optional[str] = None,
     jwt_audience: Optional[str] = None,
     jwt_jwks_url: Optional[str] = None,
+    jwt_algorithms: Optional[list[str]] = None,
 ) -> TokenVerifier:
     """Factory function to create appropriate token verifier.
     
@@ -206,6 +209,7 @@ def create_token_verifier(
         jwt_issuer: Required for "remote" profile
         jwt_audience: Required for "remote" profile
         jwt_jwks_url: Optional JWKS URL for "remote" profile
+        jwt_algorithms: Allowed JWT algorithms (defaults to ["RS256", "ES256"])
         
     Returns:
         TokenVerifier instance
@@ -224,6 +228,7 @@ def create_token_verifier(
             issuer=jwt_issuer,
             audience=jwt_audience,
             jwks_url=jwt_jwks_url,
+            jwt_algorithms=jwt_algorithms,
         )
     else:
         raise ValueError(f"Unknown profile: {profile}")

@@ -296,9 +296,6 @@ async def main():
     
     args = parser.parse_args()
     
-    # Import asyncio here (needed for async main)
-    import asyncio
-    
     # Run smoke test
     test = SmokeTest(
         transport=args.transport,
@@ -312,8 +309,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    import asyncio
-    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
