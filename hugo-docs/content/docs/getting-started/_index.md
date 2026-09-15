@@ -197,26 +197,22 @@ python -m cli.devopsos scaffold unittest # scaffold unit test configs
 
 ## 9 — Use with an AI assistant
 
+### Via MCP (Recommended — Native Integration)
+
+Use DevOps-OS as an **MCP server in Claude Desktop or ChatGPT** for seamless integration.
+
+**For Claude Desktop (5-minute setup):**
 ```bash
 pip install -r mcp_server/requirements.txt
-python mcp_server/server.py
 ```
+Then see **[MCP Quick Start]({{< relref "/docs/getting-started/mcp-quickstart" >}})** for step-by-step instructions.
 
-Add to `claude_desktop_config.json`:
+**For ChatGPT, HTTP endpoints, and production deployment:**
+See **[MCP Setup & Configuration]({{< relref "/docs/ai-integration/mcp-setup" >}})** for detailed setup guide.
 
-```json
-{
-  "mcpServers": {
-    "devops-os": {
-      "command": "python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "/path/to/devops_os"
-    }
-  }
-}
-```
+### Via API (Alternative — Direct API Calls)
 
-Then ask Claude: *"Generate a complete GitLab CI pipeline for a Python Flask API with Docker build and ArgoCD deployment."*
+Load tools from `skills/` directory and call Claude or OpenAI APIs directly:
 
 ---
 
@@ -224,6 +220,8 @@ Then ask Claude: *"Generate a complete GitLab CI pipeline for a Python Flask API
 
 | I want to… | Read |
 |-----------|------|
+| **Use MCP with Claude Desktop** | [MCP Quick Start]({{< relref "/docs/getting-started/mcp-quickstart" >}}) (5 minutes) |
+| **Set up MCP for ChatGPT, HTTP, production** | [MCP Setup & Configuration]({{< relref "/docs/ai-integration/mcp-setup" >}}) (detailed) |
 | Understand the Process-First philosophy | [Process-First guide]({{< relref "/docs/getting-started/process-first" >}}) |
 | See every CLI option and output path | [CLI Reference]({{< relref "/docs/reference" >}}) |
 | Generate infrastructure hardening baselines | [Infrastructure Hardening]({{< relref "/docs/platform-engineering/hardening" >}}) |
@@ -233,4 +231,4 @@ Then ask Claude: *"Generate a complete GitLab CI pipeline for a Python Flask API
 | Learn ArgoCD integration | [GitOps & ArgoCD]({{< relref "/docs/gitops" >}}) |
 | Set up SRE monitoring configs | [SRE Configuration]({{< relref "/docs/sre" >}}) |
 | Set up the dev container | [Dev Container]({{< relref "/docs/dev-container" >}}) |
-| Use with Claude / ChatGPT | [AI Integration]({{< relref "/docs/ai-integration" >}}) |
+| Explore all AI integration options | [AI Integration Overview]({{< relref "/docs/ai-integration" >}}) |
