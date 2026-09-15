@@ -1,0 +1,89 @@
+# docker-compose.yml: Local development setup for DevOps-OS MCP Server
+# Provides both stdio (for testing) and HTTP (for development) endpoints
+
+version: '3.8'
+
+services:
+  mcp-stdio:
+    build: .
+    image: devops-os-mcp:latest
+    container_name: devops-os-mcp-stdio
+    # Stdio mode - for testing with MCP clients
+    environment:
+      DEVOPS_OS_PROFILE: local
+      DEVOPS_OS_TRANSPORT: stdio
+      DEVOPS_OS_LOG_LEVEL: INFO
+    # Stdin/stdout for MCP protocol
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./mcp_server:/app/mcp_server:ro
+      - ./cli:/app/cli:ro
+      - /tmp/devops-os-mcp-stdio:/tmp/devops-os-mcp
+    profiles:
+      - stdio
+
+  mcp-http:
+    build: .
+    image: devops-os-mcp:latest
+    container_name: devops-os-mcp-http
+    # HTTP mode - for ChatGPT Developer mode and web clients
+    environment:
+      DEVOPS_OS_PROFILE: local
+      DEVOPS_OS_TRANSPORT: streamable-http
+      DEVOPS_OS_HOST: "0.0.0.0"
+      DEVOPS_OS_PORT: "8000"
+      DEVOPS_OS_MCP_ENDPOINT: "/mcp"
+      DEVOPS_OS_REQUEST_SIZE_MB: "10"
+      DEVOPS_OS_RESPONSE_SIZE_MB: "50"
+      DEVOPS_OS_EXECUTION_TIMEOUT: "30"
+      DEVOPS_OS_LOG_LEVEL: INFO
+    ports:
+      # Loopback-only in local development (override if needed)
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./mcp_server:/app/mcp_server:ro
+      - ./cli:/app/cli:ro
+      - /tmp/devops-os-mcp-http:/tmp/devops-os-mcp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    profiles:
+      - http
+      - all
+
+  mcp-remote-mock:
+    build: .
+    image: devops-os-mcp:latest
+    container_name: devops-os-mcp-remote
+    # Remote profile (with auth) - for testing authentication
+    environment:
+      DEVOPS_OS_PROFILE: remote
+      DEVOPS_OS_TRANSPORT: streamable-http
+      DEVOPS_OS_HOST: "0.0.0.0"
+      DEVOPS_OS_PORT: "8001"
+      DEVOPS_OS_MCP_ENDPOINT: "/mcp"
+      DEVOPS_OS_LOG_LEVEL: DEBUG
+      # JWT Configuration (stub - replace with real issuer in production)
+      DEVOPS_OS_JWT_ISSUER: "https://example.com/.well-known/openid-configuration"
+      DEVOPS_OS_JWT_AUDIENCE: "devops-os-api"
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./mcp_server:/app/mcp_server:ro
+      - ./cli:/app/cli:ro
+      - /tmp/devops-os-mcp-remote:/tmp/devops-os-mcp
+    profiles:
+      - remote
+      - all
+
+volumes:
+  tmp-stdio:
+    driver: local
+  tmp-http:
+    driver: local
+  tmp-remote:
+    driver: local
