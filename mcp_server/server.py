@@ -30,6 +30,8 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 import yaml
 
 from mcp_server.config import Config
@@ -232,15 +234,46 @@ def concurrency_limited(func):
 
 
 def _register_tools(mcp: FastMCP) -> None:
-    """Register all tools on the given FastMCP instance."""
-    mcp.tool()(generate_github_actions_workflow)
-    mcp.tool()(generate_jenkins_pipeline)
-    mcp.tool()(generate_gitlab_ci_pipeline)
-    mcp.tool()(generate_k8s_config)
-    mcp.tool()(generate_argocd_config)
-    mcp.tool()(generate_sre_configs)
-    mcp.tool()(scaffold_devcontainer)
-    mcp.tool()(generate_unittest_config)
+    """Register all tools on the given FastMCP instance, carrying the same
+    title/annotations declared in TOOL_METADATA so this instance (used for
+    the HTTP transport) matches the module-level `mcp` instance (stdio)."""
+    mcp.tool(**TOOL_METADATA["generate_github_actions_workflow"])(generate_github_actions_workflow)
+    mcp.tool(**TOOL_METADATA["generate_jenkins_pipeline"])(generate_jenkins_pipeline)
+    mcp.tool(**TOOL_METADATA["generate_gitlab_ci_pipeline"])(generate_gitlab_ci_pipeline)
+    mcp.tool(**TOOL_METADATA["generate_k8s_config"])(generate_k8s_config)
+    mcp.tool(**TOOL_METADATA["generate_argocd_config"])(generate_argocd_config)
+    mcp.tool(**TOOL_METADATA["generate_sre_configs"])(generate_sre_configs)
+    mcp.tool(**TOOL_METADATA["scaffold_devcontainer"])(scaffold_devcontainer)
+    mcp.tool(**TOOL_METADATA["generate_unittest_config"])(generate_unittest_config)
+
+
+def _build_transport_security(config: "Config") -> TransportSecuritySettings | None:
+    """Decide DNS-rebinding protection (Origin/Host validation) for the HTTP
+    transport. FastMCP auto-enables this with sensible defaults when host is
+    127.0.0.1/localhost/::1. For any other host (e.g. 0.0.0.0, required to be
+    reachable at all inside a container), it stays off unless configured
+    explicitly, since an empty allowlist would reject every real request,
+    not just malicious ones -- there's no safe default to guess here.
+
+    Returns the settings to use, or None to leave FastMCP's own default
+    behavior in place (which is also None/disabled for non-localhost hosts;
+    a warning is logged in that case so the gap is visible, not silent).
+    """
+    if config.host in ("127.0.0.1", "localhost", "::1"):
+        return None
+    if config.allowed_hosts or config.allowed_origins:
+        return TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=config.allowed_hosts,
+            allowed_origins=config.allowed_origins,
+        )
+    logger.warning(
+        f"DNS-rebinding protection is NOT active: host='{config.host}' is not "
+        "localhost, and DEVOPS_OS_ALLOWED_HOSTS/DEVOPS_OS_ALLOWED_ORIGINS are "
+        "unset. Set them to your deployment's real Host/Origin values, or put "
+        "this server behind a reverse proxy that validates those headers."
+    )
+    return None
 
 
 def _register_health_routes(http_mcp: FastMCP, config: "Config", token_verifier=None) -> None:
@@ -288,11 +321,42 @@ mcp = FastMCP(
 )
 
 
+# Tool metadata (title + annotations) keyed by function name. Declared once
+# here and reused both at decoration time below and inside _register_tools(),
+# so the HTTP-transport instance carries the same metadata as the stdio one.
+# All 13 tools only read input and produce text/JSON -- none touch real
+# infrastructure, external services, or secrets -- so openWorldHint=False and
+# destructiveHint=False across the board. update_versions is the only tool
+# that mutates server-local state (in-memory/env version config), so it's the
+# only one with readOnlyHint=False; everything else is a pure generator.
+_RO_GENERATOR = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+TOOL_METADATA: dict[str, dict] = {
+    "generate_github_actions_workflow": {"title": "GitHub Actions Workflow Generator", "annotations": _RO_GENERATOR},
+    "generate_jenkins_pipeline": {"title": "Jenkins Pipeline Generator", "annotations": _RO_GENERATOR},
+    "generate_gitlab_ci_pipeline": {"title": "GitLab CI Pipeline Generator", "annotations": _RO_GENERATOR},
+    "generate_k8s_config": {"title": "Kubernetes Manifest Generator", "annotations": _RO_GENERATOR},
+    "generate_argocd_config": {"title": "ArgoCD / Flux GitOps Config Generator", "annotations": _RO_GENERATOR},
+    "generate_sre_configs": {"title": "SRE Observability Config Generator", "annotations": _RO_GENERATOR},
+    "scaffold_devcontainer": {"title": "Dev Container Scaffold Generator", "annotations": _RO_GENERATOR},
+    "generate_unittest_config": {"title": "Unit Test Scaffold Generator", "annotations": _RO_GENERATOR},
+    "get_version_config": {"title": "Version Config Lookup", "annotations": _RO_GENERATOR},
+    "check_version_updates": {"title": "Version Update Checker", "annotations": _RO_GENERATOR},
+    "suggest_versions": {"title": "Version Suggestion Advisor", "annotations": _RO_GENERATOR},
+    "check_security_issues": {"title": "Security Issue Checker", "annotations": _RO_GENERATOR},
+    "update_versions": {
+        "title": "Tool Version Updater",
+        "annotations": ToolAnnotations(
+            readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False
+        ),
+    },
+}
+
+
 # ---------------------------------------------------------------------------
 # Tool: generate_github_actions_workflow
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_github_actions_workflow"])
 @concurrency_limited
 def generate_github_actions_workflow(
     name: str = "my-app",
@@ -382,7 +446,7 @@ def generate_github_actions_workflow(
 # Tool: generate_jenkins_pipeline
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_jenkins_pipeline"])
 @concurrency_limited
 def generate_jenkins_pipeline(
     name: str = "my-app",
@@ -464,7 +528,7 @@ def generate_jenkins_pipeline(
 # Tool: generate_k8s_config
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_k8s_config"])
 @concurrency_limited
 def generate_k8s_config(
     app_name: str = "my-app",
@@ -586,7 +650,7 @@ def generate_k8s_config(
 # Tool: scaffold_devcontainer
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["scaffold_devcontainer"])
 @concurrency_limited
 def scaffold_devcontainer(
     languages: str = "python",
@@ -688,7 +752,7 @@ def scaffold_devcontainer(
 # Tool: get_version_config
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["get_version_config"])
 @concurrency_limited
 def get_version_config(tools: str = "") -> str:
     """Get current version configuration for dev container tools.
@@ -734,7 +798,7 @@ def get_version_config(tools: str = "") -> str:
 # Tool: check_version_updates
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["check_version_updates"])
 @concurrency_limited
 def check_version_updates(tools: str = "") -> str:
     """Check for available version updates and security issues.
@@ -791,7 +855,7 @@ def check_version_updates(tools: str = "") -> str:
 # Tool: suggest_versions
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["suggest_versions"])
 @concurrency_limited
 def suggest_versions(tools: str = "", prefer_lts: bool = False) -> str:
     """Get recommended versions for tools based on release strategy.
@@ -844,7 +908,7 @@ def suggest_versions(tools: str = "", prefer_lts: bool = False) -> str:
 # Tool: update_versions
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["update_versions"])
 @concurrency_limited
 def update_versions(versions_json: str) -> str:
     """Update tool versions in environment variables.
@@ -892,7 +956,7 @@ def update_versions(versions_json: str) -> str:
 # Tool: check_security_issues
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["check_security_issues"])
 @concurrency_limited
 def check_security_issues(tools: str = "") -> str:
     """Check for security issues in current tool versions.
@@ -944,7 +1008,7 @@ def check_security_issues(tools: str = "") -> str:
 
 
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_gitlab_ci_pipeline"])
 @concurrency_limited
 def generate_gitlab_ci_pipeline(
     name: str = "my-app",
@@ -1017,7 +1081,7 @@ def generate_gitlab_ci_pipeline(
 # Tool: generate_argocd_config
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_argocd_config"])
 @concurrency_limited
 def generate_argocd_config(
     name: str = "my-app",
@@ -1110,7 +1174,7 @@ def generate_argocd_config(
 # Tool: generate_sre_configs
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_sre_configs"])
 @concurrency_limited
 def generate_sre_configs(
     name: str = "my-app",
@@ -1197,7 +1261,7 @@ def generate_sre_configs(
 # Tool: generate_unittest_config
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(**TOOL_METADATA["generate_unittest_config"])
 @concurrency_limited
 def generate_unittest_config(
     name: str = "my-app",
@@ -1349,7 +1413,11 @@ if __name__ == "__main__":
             # Only add token_verifier if remote profile
             if token_verifier is not None:
                 http_mcp_kwargs["token_verifier"] = token_verifier
-            
+
+            transport_security = _build_transport_security(config)
+            if transport_security is not None:
+                http_mcp_kwargs["transport_security"] = transport_security
+
             http_mcp = FastMCP(**http_mcp_kwargs)
 
             # Register all tools on the HTTP instance

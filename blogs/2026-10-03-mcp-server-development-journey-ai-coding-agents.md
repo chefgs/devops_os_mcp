@@ -1,9 +1,9 @@
 ---
 title: "DevOps OS MCP Server Development Journey with AI Coding Agents"
 slug: "mcp-server-development-journey-ai-coding-agents"
-description: "Building and hardening DevOps-OS's MCP server end to end with AI coding agents — GitHub Copilot's agent mode for the initial build, a Claude Code session for the testing and bug-fixing pass — the test approach, the dev process, and the prompting techniques that actually worked."
+description: "Building and hardening DevOps-OS's MCP server end to end with AI coding agents — GitHub Copilot's agent mode for the initial build, a Claude Code session for testing, bug-fixing, and an MCP-spec compliance audit — the test approach, the dev process, and the prompting techniques that actually worked."
 topic: "ai-devops"
-tags: ["AIAgents", "MCPServer", "GitHubCopilot", "ClaudeCode", "DevOpsOS", "Testing"]
+tags: ["AIAgents", "MCPServer", "GitHubCopilot", "ClaudeCode", "DevOpsOS", "Testing", "MCPSpec"]
 publishedAt: "2026-10-03"
 featured: true
 ---
@@ -14,7 +14,7 @@ I built DevOps-OS's MCP server almost entirely with AI coding agents — not as 
 
 GitHub Copilot's agent mode wrote the bulk of the server — input validation, docstrings, 13 tool wrappers around the existing CLI generators. It worked. I connected it to Claude Code, asked it to generate a few configs, got real YAML back, moved on.
 
-Then, in a separate session, I spent real time with Claude Code actually trying to *use* the thing — scaffolding real projects, testing edge cases, acting as a test architect instead of a happy-path user — and found four real bugs, one of which was a production healthcheck that had been silently broken the whole time. This post covers what the server does, what each AI agent actually contributed at its stage, the testing approach that surfaced the problems, and the prompting techniques I'm taking away from the whole thing.
+Then, in a separate session, I spent real time with Claude Code actually trying to *use* the thing — scaffolding real projects, testing edge cases, acting as a test architect instead of a happy-path user — and found a string of real bugs, one of which was a production healthcheck that had been silently broken the whole time. Once those were fixed, a final pass checked the server against the actual MCP specification rather than just its own test suite, and found two more real gaps that no amount of testing would have caught. This post covers what the server does, what each AI agent actually contributed at its stage, the testing and spec-compliance approach that surfaced all of it, and the prompting techniques I'm taking away from the whole thing.
 
 ## What DevOps-OS's MCP server actually is
 
@@ -70,6 +70,25 @@ In rough order of discovery:
 
 Final state: 485 tests, all passing, zero skipped — up from 479 passing / 4 skipped (where two of those four had, in effect, *never actually run*, not just been excluded).
 
+## Checking it against the actual MCP spec
+
+With 485 tests passing and every bug from the testing pass closed, there was still a question none of that answered: does this server actually follow the MCP specification, or does it just pass the tests I happened to write? Those aren't the same question. A test suite proves a server does what you tested for; it says nothing about whether the server gives *other people's* clients the information and protections the protocol says they're entitled to.
+
+So I went and read the actual spec — [tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools), [transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports), [security best practices](https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices) — and checked the codebase against it line by line, not from memory.
+
+**What was already correct, confirmed rather than assumed:** stdout hygiene (every `print()` in the generator modules is confined to CLI-only code, never reachable from the MCP path), error handling (the SDK converts any exception from a tool into `isError: true` on the result, not a malformed protocol error — which, satisfyingly, is exactly why replacing `sys.exit()` with `raise ValueError(...)` earlier in this project wasn't just a style fix, it's literally the spec-correct behavior), and DNS-rebinding protection for the default localhost deployment (the SDK auto-enables it correctly when bound to `127.0.0.1`).
+
+**What was missing, found by reading the spec instead of guessing:**
+
+1. **Zero tool annotations, on all 13 tools.** The spec defines `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` specifically so a client can tell a safe read apart from a state-changing write — *"there **SHOULD** always be a human in the loop with the ability to deny tool invocations,"* the spec says, and annotations are the signal that review is based on. Every one of our 13 tools looked identical to a client trying to make that call.
+2. **DNS-rebinding protection silently disabled for remote deployment.** The SDK's auto-protection only fires for `127.0.0.1`/`localhost`/`::1`. The moment you bind to `0.0.0.0` — which the project's own `docker-compose.yml` already does for the "remote" profile, because the server has to be reachable at all inside a container — that protection just turns off, with no warning, because the SDK can't safely guess what Origin/Host values are legitimate for an environment it knows nothing about.
+
+**What got fixed:** 12 tools now declare `readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False` (confirmed true by this project's own determinism tests); `update_versions` — the one tool that mutates server state — is the single exception, `readOnlyHint=False`. And a small decision function, `_build_transport_security()`, now explicitly enables DNS-rebinding protection when a non-localhost deployment configures its real Host/Origin allowlist, and — when it hasn't — logs a loud warning instead of staying silent. Both fixes shipped with their own regression tests, same as everything else in this project.
+
+**Why this is worth the detour, if you're building an MCP server yourself:** passing your own tests tells you the server does what you expected. It tells you nothing about a caller you didn't anticipate — a different client with different auto-approval logic, an automated agent calling your server with no human reading a confirmation dialog at all, someone deploying your "remote" profile for real instead of just reading the docs for it.
+
+I was explicitly asked, partway through this work, whether this server should support fully unattended ("headless") operation, and the honest answer was: not safely, not yet — because the only thing that lets *any* caller, human-reviewed or fully automated, tell "this is just a read" apart from "this changes something" is metadata the server wasn't providing. Spec compliance isn't a formality that happens after the real work is done. It's the part of the contract that protects people using your server in ways you'll never see and can't control — which, for anything meant to be used by an AI agent instead of by you directly, is the normal case, not the edge case.
+
 ## Prompting techniques that actually mattered
 
 **Ground claims in the source, not in plausibility.** The whole bug chain traces back to a docstring describing a parameter's valid values from inference rather than from reading the enum it dispatched to. The fix as a standing practice: when an agent documents a constraint, make it quote the actual code it's constraining, not infer something that sounds right.
@@ -88,8 +107,12 @@ Final state: 485 tests, all passing, zero skipped — up from 479 passing / 4 sk
 
 **Don't bundle unrelated asks into one message.** "Fix these four bugs, also here's a separate question about token economics" risks the second half getting less attention than it would on its own. I've since added this as a standing rule in my own CLAUDE.md.
 
+**A passing test suite answers "does it do what I expected," not "is it correct."** Checking against the actual MCP specification — not memory, not the SDK's happy path, the primary source doc — found two real gaps (tool annotations, DNS-rebinding config) that 485 passing tests had no way to catch, because I'd never written a test for a requirement I didn't know existed.
+
 ## What I'd tell someone starting the same way
 
 Using an agentic coding tool to build the first version fast, then a separate, deliberate testing pass with a different tool (or at least a different mode — deep investigation instead of one-shot generation) to actually exercise it, is a reasonable division of labor. The mistake is skipping the second half because the first half compiled and returned something that looked right. Three of the four bugs that shipped were never caught by "does it return valid YAML" — they were only caught by "what happens when the input is wrong," "does this run through the real server," and "why is this test not actually testing anything." None of those questions are expensive to ask. They're just easy to skip when the happy path already works.
 
-Full technical detail on the test strategy lives in [`docs/mcp/MCP-TEST-STRATEGY.md`](../docs/mcp/MCP-TEST-STRATEGY.md), the incident log in [`mcp-validation/TEST_REPORT.md`](../mcp-validation/TEST_REPORT.md), and the deep dive on the first bug in [the previous post](./2026-10-02-realtime-mcp-debugging-devops-os-mcp-server.md).
+And one more, past "it works": "does it follow the actual spec" is a different question again, and it's worth asking even after every bug you know about is fixed. A server can pass every test you wrote and still hand every caller — human-reviewed or fully automated — identical, uninformative metadata about 13 tools with very different risk profiles, and still leave a named, documented attack open the moment it's deployed anywhere beyond your own laptop. Neither of those shows up as a failing test. They show up when you read the spec your server is supposed to be speaking.
+
+Final state: 490 tests, all passing, zero skipped — up from 479 passing / 4 skipped at the start of the testing pass, with all 8 bugs from the trail above fixed, all 13 tools now correctly annotated, and the transport-security gap closed. Full technical detail on the test strategy lives in [`docs/mcp/MCP-TEST-STRATEGY.md`](../docs/mcp/MCP-TEST-STRATEGY.md), the incident log in [`mcp-validation/TEST_REPORT.md`](../mcp-validation/TEST_REPORT.md), and the deep dive on the first bug in [the previous post](./2026-10-02-realtime-mcp-debugging-devops-os-mcp-server.md).

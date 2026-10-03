@@ -49,7 +49,10 @@ All configuration is done via environment variables with the `DEVOPS_OS_` prefix
 | `DEVOPS_OS_REQUEST_SIZE_MB` | `10` | Maximum request size in MB |
 | `DEVOPS_OS_RESPONSE_SIZE_MB` | `50` | Maximum response size in MB |
 | `DEVOPS_OS_EXECUTION_TIMEOUT` | `30` | Tool execution timeout in seconds |
+| `DEVOPS_OS_MAX_CONCURRENT_CALLS` | `10` | Max concurrent tool executions (1-100) |
 | `DEVOPS_OS_LOG_LEVEL` | `INFO` | Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
+| `DEVOPS_OS_ALLOWED_HOSTS` | *(empty)* | Comma-separated `Host` header allowlist — **required** for DNS-rebinding protection when `DEVOPS_OS_HOST` is not `127.0.0.1`/`localhost`/`::1`; see [DNS-Rebinding Protection](#dns-rebinding-protection-non-localhost-deployments) below |
+| `DEVOPS_OS_ALLOWED_ORIGINS` | *(empty)* | Comma-separated `Origin` header allowlist, same non-localhost requirement as above |
 
 ### For Remote Deployment (With Authentication)
 
@@ -61,9 +64,28 @@ export DEVOPS_OS_HOST=0.0.0.0
 export DEVOPS_OS_JWT_ISSUER=https://your-issuer/.well-known/openid-configuration
 export DEVOPS_OS_JWT_AUDIENCE=your-api-audience
 export DEVOPS_OS_JWT_JWKS_URL=https://your-issuer/.well-known/jwks.json
+
+# Required alongside DEVOPS_OS_HOST=0.0.0.0 -- see DNS-Rebinding Protection below
+export DEVOPS_OS_ALLOWED_HOSTS=devops-os.example.com
+export DEVOPS_OS_ALLOWED_ORIGINS=https://devops-os.example.com
 ```
 
 See [AUTH-SETUP.md](AUTH-SETUP.md) for detailed authentication configuration.
+
+### DNS-Rebinding Protection (non-localhost deployments)
+
+The MCP spec requires servers to validate the `Origin`/`Host` headers on every HTTP request to prevent [DNS-rebinding attacks](https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices) -- a technique where a malicious webpage's domain is re-pointed to `127.0.0.1` after your browser has already trusted it, letting the page's JavaScript talk to a server it shouldn't be able to reach.
+
+The underlying MCP SDK handles this automatically **only when `DEVOPS_OS_HOST` is `127.0.0.1`, `localhost`, or `::1`.** The moment you set `DEVOPS_OS_HOST=0.0.0.0` -- which every example on this page does, because the server has to be reachable at all inside a container -- that protection is **silently disabled** unless you configure it yourself. The server logs a warning at startup (`DNS-rebinding protection is NOT active...`) when this applies and nothing has been configured; don't ignore it.
+
+**Fix:** set `DEVOPS_OS_ALLOWED_HOSTS` and `DEVOPS_OS_ALLOWED_ORIGINS` to the real public hostname your server is reached at (e.g. the domain in front of your reverse proxy):
+
+```bash
+export DEVOPS_OS_ALLOWED_HOSTS=devops-os.example.com
+export DEVOPS_OS_ALLOWED_ORIGINS=https://devops-os.example.com
+```
+
+There's no safe default the server can guess here -- an empty allowlist with protection forced on would reject *all* real traffic, not just malicious requests, so the server leaves it off (with a warning) rather than break your deployment. If you can't set these (e.g. the real hostname isn't known at container-build time), make sure a reverse proxy in front of the server validates `Host`/`Origin` instead.
 
 ## Endpoints
 
@@ -304,11 +326,17 @@ Build and run:
 docker build -t devops-os-mcp:latest .
 
 # Run with HTTP transport
+# Note: binding 0.0.0.0 disables the SDK's automatic DNS-rebinding protection
+# (it only auto-enables for 127.0.0.1/localhost/::1) -- set ALLOWED_HOSTS/
+# ALLOWED_ORIGINS to your real public hostname, or front this with a reverse
+# proxy that validates Host/Origin itself. See DNS-Rebinding Protection above.
 docker run -d \
   --name devops-os-mcp \
   -e DEVOPS_OS_TRANSPORT=streamable-http \
   -e DEVOPS_OS_HOST=0.0.0.0 \
   -e DEVOPS_OS_PORT=8000 \
+  -e DEVOPS_OS_ALLOWED_HOSTS=devops-os.example.com \
+  -e DEVOPS_OS_ALLOWED_ORIGINS=https://devops-os.example.com \
   -p 127.0.0.1:8000:8000 \
   devops-os-mcp:latest
 
@@ -325,7 +353,7 @@ curl http://127.0.0.1:8000/health
    - Monitor with: `docker stats devops-os-mcp`
 
 2. **Concurrency:**
-   - Default: Unlimited concurrent requests
+   - Default: up to 10 concurrent tool executions (`DEVOPS_OS_MAX_CONCURRENT_CALLS`, range 1-100)
    - Each request runs in isolated temp directory
    - Monitor with: `docker exec devops-os-mcp ps aux`
 

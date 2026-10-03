@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-03
 **Scope:** all 13 tools exposed by the `devops-os` MCP server (`mcp_server/server.py`)
-**Test suite:** `tests/test_scenario_based.py` (84 tests), building on the existing `tests/` + `mcp_server/test_*.py` suite (382 tests)
+**Test suite:** `tests/test_scenario_based.py` (84 tests), building on the existing `tests/` + `mcp_server/test_*.py` suite (382 tests). Current total as of the spec-compliance audit below: 490 tests, 0 failed, 0 skipped.
 **Related:** [`mcp-validation/TEST_REPORT.md`](../../mcp-validation/TEST_REPORT.md) (the incident log — how 3 of these bugs were actually found and fixed), `tests/test_mcp_protocol.py` (live wire-protocol tests this strategy reuses)
 
 ---
@@ -79,6 +79,21 @@ All four were fixed in a later pass than the one that found them — noted here 
 
 ---
 
+## MCP spec compliance audit (after all bugs above were fixed)
+
+A separate pass checked the server against the actual [MCP specification](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) — not the test suite, the primary source doc — since passing every test above only proves the server does what *this project's own tests* expected, not that it gives other clients what the protocol says they're entitled to. Confirmed correct by reading SDK source rather than assuming: stdout hygiene (every `print()` in `devops_os/core/*.py` is CLI-only, never reachable from the MCP path), error-handling semantics (the SDK converts any raised exception into `isError: true`, never a malformed protocol error — the reason Bug #1's `sys.exit()` → `raise ValueError` fix was spec-correct, not just tidier), and DNS-rebinding protection for the default localhost deployment (the SDK auto-enables it when `host` is `127.0.0.1`/`localhost`/`::1`).
+
+Two real gaps found, both fixed:
+
+| Gap | Detail | Fix |
+|---|---|---|
+| **Zero tool annotations on all 13 tools** | The spec defines `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` so clients can tell a safe read apart from a state-changing write before prompting a human for approval. Every tool here looked identical to a client trying to make that call. | Added a `TOOL_METADATA` dict (`mcp_server/server.py`) applied consistently to both the stdio and HTTP-transport instances; 12 generators/lookups get `readOnlyHint=True`, `update_versions` (the one tool that mutates server state) is the sole exception. Tested in `mcp_server/test_http.py::test_tool_annotations_declare_read_only_and_risk_correctly`. |
+| **DNS-rebinding protection silently disabled for non-localhost (remote) deployment** | The SDK's auto-enable only fires for localhost. Binding `0.0.0.0` — required for the server to be reachable at all inside a container, and what the "remote" profile and `docker-compose.yml` already do — turns that protection off with no warning. | Added `_build_transport_security()` (`mcp_server/server.py`) plus two new `Config` fields (`DEVOPS_OS_ALLOWED_HOSTS`/`DEVOPS_OS_ALLOWED_ORIGINS`, `mcp_server/config.py`): builds real `TransportSecuritySettings` when the deployment configures its allowlist, logs a loud warning when it hasn't (no safe default exists to guess). Documented operator-facing in `docs/mcp/HTTP-SETUP.md`. Tested in `mcp_server/test_http.py::test_transport_security_*` and `mcp_server/test_config.py::test_config_allowed_hosts_and_origins_from_env`. |
+
+Neither gap was reachable by any test in this suite, including the 84-test scenario pass above — they're not input-validation problems, they're missing protocol metadata and missing transport-layer configuration. A scenario framework finds "does this tool reject bad input"; it doesn't find "does this tool tell the client what kind of tool it is" unless you specifically go looking by reading the spec, not the code.
+
+---
+
 ## How to extend this suite
 
 When adding a new MCP tool:
@@ -86,3 +101,4 @@ When adding a new MCP tool:
 2. Write the validator in `validators.py` **and** the test in the same change — Bug #1's postmortem rule ("write a test for every claim") applies literally: a validator with no corresponding rejection test is exactly how Bugs #1 and #3 shipped.
 3. If the new behavior depends on server-level wiring (not just input validation), add at least one `_MCPSession`-based live test, not just a unit-level call — Bug #2 is the reason this rule exists.
 4. Reuse the hello-world sample apps (`mcp-validation/hello/`) for happy-path input where an app name/image is needed, instead of inventing a new placeholder each time.
+5. Add the new tool to `TOOL_METADATA` in `server.py` with real annotations (`readOnlyHint` etc.) at the same time you write the tool, not as a later pass — the spec-compliance audit above is the reason this rule exists; it's easy to ship 13 tools with correct validation and zero metadata, same as it's easy to ship a validator with no test.

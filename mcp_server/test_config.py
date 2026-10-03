@@ -33,6 +33,17 @@ class TestConfig:
         assert config.execution_timeout == 30
         assert config.log_level == "INFO"
         assert config.profile == "local"
+        assert config.allowed_hosts == []
+        assert config.allowed_origins == []
+
+    def test_config_allowed_hosts_and_origins_from_env(self, monkeypatch):
+        """Comma-separated DNS-rebinding allowlists parse correctly from env."""
+        monkeypatch.setenv("DEVOPS_OS_ALLOWED_HOSTS", "example.com:*, api.example.com")
+        monkeypatch.setenv("DEVOPS_OS_ALLOWED_ORIGINS", "https://example.com")
+
+        config = Config.from_env()
+        assert config.allowed_hosts == ["example.com:*", "api.example.com"]
+        assert config.allowed_origins == ["https://example.com"]
 
     def test_config_from_env(self, monkeypatch):
         """Test loading config from environment variables."""

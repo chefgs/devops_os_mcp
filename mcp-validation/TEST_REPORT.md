@@ -3,7 +3,7 @@
 **Date:** 2026-10-02
 **Server:** `devops-os` (stdio, `.venv/bin/python -m mcp_server.server`), registered via project `.mcp.json`
 **Tester role:** developer, scaffolding 5 "AI-era" language hello-worlds via MCP tools
-**Status:** Bugs #1, #2, and #3 fixed and verified, plus the concurrency/health-route/test-infra follow-ups. See `docs/mcp/MCP-TEST-STRATEGY.md` for the full bug list and `git log` (commit `4dc7f65` and earlier) for the fix trail. This file is left as the original incident log; sections below are annotated where since superseded rather than rewritten.
+**Status:** Bugs #1, #2, and #3 fixed and verified, plus the concurrency/health-route/test-infra follow-ups, and a subsequent MCP spec-compliance audit (tool annotations, DNS-rebinding config). See `docs/mcp/MCP-TEST-STRATEGY.md` for the full bug list and spec-audit findings, and `git log` (commit `4dc7f65` and later) for the fix trail. This file is left as the original incident log; sections below are annotated where since superseded rather than rewritten.
 
 ## Setup recap
 `.venv` didn't exist on first connect (`ENOENT`). Created it (`python3 -m venv .venv`), installed `mcp_server/requirements.txt`, reconnected successfully. See prior session turns for detail.

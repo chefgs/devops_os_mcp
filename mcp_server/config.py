@@ -25,6 +25,11 @@ class Config:
     - DEVOPS_OS_MAX_CONCURRENT_CALLS: Max concurrent tool executions (default: 10, range: 1-100)
     - DEVOPS_OS_PROFILE: Deployment profile 'local' (no auth) or 'remote' (auth required)
                          (default: 'local')
+    - DEVOPS_OS_ALLOWED_HOSTS: Comma-separated Host header allowlist for HTTP transport,
+                               required for DNS-rebinding protection when DEVOPS_OS_HOST
+                               is not localhost (default: empty -- see __main__ warning)
+    - DEVOPS_OS_ALLOWED_ORIGINS: Comma-separated Origin header allowlist for HTTP
+                                 transport, same localhost caveat as above (default: empty)
     - DEVOPS_OS_JWT_ISSUER: JWT issuer URL (required in remote profile)
     - DEVOPS_OS_JWT_AUDIENCE: JWT audience/resource (required in remote profile)
     - DEVOPS_OS_JWT_JWKS_URL: JWKS endpoint URL (optional, derived from issuer if not set)
@@ -55,6 +60,13 @@ class Config:
 
     # Deployment profile (local or remote)
     profile: Literal["local", "remote"] = "local"
+
+    # DNS-rebinding protection allowlists for non-localhost HTTP binding.
+    # FastMCP auto-enables sensible defaults for 127.0.0.1/localhost/::1;
+    # for any other host (e.g. 0.0.0.0 in a container) these must be set
+    # explicitly or protection stays off -- see __main__'s startup warning.
+    allowed_hosts: list[str] = field(default_factory=list)
+    allowed_origins: list[str] = field(default_factory=list)
 
     # Authentication (remote profile)
     jwt_issuer: str | None = None
@@ -146,7 +158,12 @@ class Config:
         jwt_jwks_url = os.getenv("DEVOPS_OS_JWT_JWKS_URL")
         jwt_algorithms_str = os.getenv("DEVOPS_OS_JWT_ALGORITHMS", "RS256,ES256")
         jwt_algorithms = [a.strip() for a in jwt_algorithms_str.split(",") if a.strip()]
-        
+
+        allowed_hosts_str = os.getenv("DEVOPS_OS_ALLOWED_HOSTS", "")
+        allowed_hosts = [h.strip() for h in allowed_hosts_str.split(",") if h.strip()]
+        allowed_origins_str = os.getenv("DEVOPS_OS_ALLOWED_ORIGINS", "")
+        allowed_origins = [o.strip() for o in allowed_origins_str.split(",") if o.strip()]
+
         # Prompt improvement suggestions
         enable_suggestions_str = os.getenv("DEVOPS_OS_ENABLE_SUGGESTIONS", "true").lower()
         enable_suggestions = enable_suggestions_str in ("true", "1", "yes")
@@ -186,6 +203,8 @@ class Config:
             jwt_audience=jwt_audience,
             jwt_jwks_url=jwt_jwks_url,
             jwt_algorithms=jwt_algorithms,
+            allowed_hosts=allowed_hosts,
+            allowed_origins=allowed_origins,
             enable_suggestions=enable_suggestions,
             suggestion_confidence_threshold=suggestion_confidence_threshold,
             max_suggestions_per_response=max_suggestions_per_response,

@@ -101,6 +101,46 @@ class TestHTTPTransportConfiguration:
         assert config.transport == "streamable-http"
         assert config.host == "0.0.0.0"
         assert config.port == 9000
+
+    def test_transport_security_none_for_localhost(self):
+        """FastMCP auto-enables DNS-rebinding protection for localhost itself
+        -- our code must stay out of the way (return None) rather than
+        double-configure it."""
+        from mcp_server.config import Config
+        from mcp_server.server import _build_transport_security
+
+        for host in ("127.0.0.1", "localhost", "::1"):
+            config = Config(transport="streamable-http", host=host)
+            assert _build_transport_security(config) is None
+
+    def test_transport_security_active_when_allowlist_configured(self):
+        """Non-localhost host + an explicit allowlist must produce real
+        TransportSecuritySettings, not silently stay disabled."""
+        from mcp_server.config import Config
+        from mcp_server.server import _build_transport_security
+
+        config = Config(
+            transport="streamable-http", host="0.0.0.0",
+            allowed_hosts=["example.com:*"], allowed_origins=["https://example.com"],
+        )
+        settings = _build_transport_security(config)
+        assert settings is not None
+        assert settings.enable_dns_rebinding_protection is True
+        assert settings.allowed_hosts == ["example.com:*"]
+        assert settings.allowed_origins == ["https://example.com"]
+
+    def test_transport_security_disabled_when_unconfigured(self):
+        """Non-localhost host with no allowlist must stay disabled -- an
+        empty allowlist would reject all real traffic, not just malicious
+        requests -- this is the exact gap found in the MCP spec audit.
+        (The accompanying warning log is verified live in the audit, not
+        asserted here since mcp_server.logging doesn't route through
+        stdlib logging / caplog.)"""
+        from mcp_server.config import Config
+        from mcp_server.server import _build_transport_security
+
+        config = Config(transport="streamable-http", host="0.0.0.0")
+        assert _build_transport_security(config) is None
         assert config.mcp_endpoint == "/mcp"
 
     def test_config_request_size_limit(self):
@@ -272,6 +312,29 @@ class TestMCPProtocolCompat:
             assert tool.name, "tool missing a name"
             assert tool.description, f"tool '{tool.name}' missing a description"
             assert tool.inputSchema, f"tool '{tool.name}' missing an inputSchema"
+
+    def test_tool_annotations_declare_read_only_and_risk_correctly(self):
+        """MCP spec best practice: clients use tool annotations (readOnlyHint
+        etc.) to decide which calls are safe to auto-approve vs. need a human
+        in the loop. Every tool here must declare a title and annotations,
+        and exactly one tool (update_versions, which mutates server state)
+        must be the one marked readOnlyHint=False -- every generator/lookup
+        tool must be readOnlyHint=True.
+        """
+        from mcp_server import server
+
+        tools = asyncio.run(server.mcp.list_tools())
+        non_read_only = []
+        for tool in tools:
+            assert tool.title, f"tool '{tool.name}' missing a title"
+            assert tool.annotations is not None, f"tool '{tool.name}' missing annotations"
+            assert tool.annotations.openWorldHint is False
+            assert tool.annotations.destructiveHint is False
+            if not tool.annotations.readOnlyHint:
+                non_read_only.append(tool.name)
+        assert non_read_only == ["update_versions"], (
+            f"expected only update_versions to be non-read-only, got {non_read_only}"
+        )
 
     def test_tool_invocation_json_serializable(self):
         """Test that tool responses are JSON serializable."""
