@@ -1,0 +1,251 @@
+<title>MCP Test Coverage Report</title>
+<style>
+/*
+  Layout: hero stat row -> two bar charts (per-file volume, all passing;
+  then scenario-nature breakdown for the scenario suite) -> detail table ->
+  what-was-fixed section. Color: blue display + system sans body; status
+  green for the all-passing bars; fixed categorical order for scenario
+  nature. Values below are the dataviz skill's validated reference palette.
+*/
+:root {
+  color-scheme: light;
+  --bg: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --good: #0ca30c;
+  --accent: #2a78d6;
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a;
+  --cat-4: #eda100; --cat-5: #e87ba4; --cat-6: #4a3aa7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+    --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --good: #0ca30c; --accent: #3987e5;
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
+    --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
+  --muted: #898781; --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --good: #0ca30c; --accent: #3987e5;
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
+  --cat-4: #c98500; --cat-5: #d55181; --cat-6: #9085e9;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 28px 16px 48px;
+}
+.wrap { max-width: 980px; margin: 0 auto; }
+h1 { font-size: 1.7rem; margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); margin: 0 0 28px; font-size: 0.95rem; }
+.sub code { background: var(--grid); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 32px; }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px 14px; min-width: 0; }
+.stat .n { font-size: 1.9rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .n.good { color: var(--good); }
+.stat .l { color: var(--ink-2); font-size: 0.78rem; margin-top: 4px; letter-spacing: 0.01em; }
+
+section { margin-bottom: 36px; }
+h2 { font-size: 1.1rem; margin: 0 0 4px; }
+.note { color: var(--ink-2); font-size: 0.88rem; margin: 0 0 16px; max-width: 70ch; }
+
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px 14px; overflow-x: auto; }
+.bar-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; position: relative; min-width: 560px; }
+.bar-label { width: 190px; flex: 0 0 190px; font-size: 0.82rem; color: var(--ink-2); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { flex: 1; height: 20px; position: relative; min-width: 0; }
+.bar-seg { position: absolute; top: 0; height: 20px; border-radius: 4px; transition: filter 0.15s; cursor: default; }
+.bar-seg:hover { filter: brightness(1.12); }
+.bar-seg.pass { background: var(--good); }
+.bar-count { width: 56px; flex: 0 0 56px; font-size: 0.82rem; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.tip { position: fixed; background: var(--ink); color: var(--bg); font-size: 0.78rem; padding: 5px 9px; border-radius: 6px; pointer-events: none; opacity: 0; transition: opacity 0.1s; z-index: 10; white-space: nowrap; }
+.tip.show { opacity: 1; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--ink-2); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.03em; }
+td.n { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+td.file { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.82rem; white-space: nowrap; }
+
+.skip-list { display: grid; gap: 12px; }
+.skip-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.skip-item .k { display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; margin-bottom: 7px; }
+.skip-item .k.found { background: color-mix(in srgb, var(--cat-2) 18%, var(--surface)); color: var(--cat-2); }
+.skip-item p { margin: 0; color: var(--ink-2); font-size: 0.87rem; }
+.skip-item code { background: var(--grid); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; color: var(--ink); }
+
+footer { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
+</style>
+
+<div class="wrap">
+  <h1>MCP Server Test Coverage Report</h1>
+  <p class="sub">devops-os MCP server &middot; <code>tests/</code> + <code>mcp_server/*.py</code> &middot; updated 2026-10-03, includes the MCP spec-compliance audit</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">490</div><div class="l">TOTAL TESTS</div></div>
+    <div class="stat"><div class="n good">490</div><div class="l">PASSED</div></div>
+    <div class="stat"><div class="n good">0</div><div class="l">SKIPPED</div></div>
+    <div class="stat"><div class="n good">0</div><div class="l">FAILED</div></div>
+  </div>
+
+  <section>
+    <h2>Tests per file</h2>
+    <p class="note">Sorted by volume. Fully green across every file — the 4 tests skipped in the previous report were fixed for real, not excluded (see below). Volume alone is a weak signal: see the scenario breakdown below for what kind of testing each one actually does.</p>
+    <div class="chart-card">
+      <div id="chart1"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Scenario-nature breakdown — <code>tests/test_scenario_based.py</code> (93 tests)</h2>
+    <p class="note">The new test-architect pass across all 13 MCP tools, categorized by what each test actually checks rather than which tool it targets. This is the file that found Bugs #1 and #3 this session.</p>
+    <div class="chart-card">
+      <div id="chart2"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>By functional area</h2>
+    <table>
+      <thead><tr><th>File</th><th>Count</th><th>Covers</th></tr></thead>
+      <tbody id="area-table"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>The 4 previously-skipped tests — now fixed for real</h2>
+    <p class="note">Each one turned out to be fixable properly rather than just excludable. One pair uncovered a live production bug along the way.</p>
+    <div class="skip-list">
+      <div class="skip-item">
+        <span class="k found">Fixed — a real production bug, not just a test gap</span>
+        <p><code>test_health_endpoint_format</code> &amp; <code>test_ready_endpoint_format</code> tested <code>/health</code>/<code>/ready</code> routes that didn't exist. Turned out <code>docker-compose.yml</code>'s <code>healthcheck:</code> and <code>scripts/smoke-test.py</code> both already call <code>GET /health</code> expecting <code>200</code> — so any Docker/HTTP deployment's healthcheck has been silently failing. Implemented both routes for real (<code>_register_health_routes()</code> in <code>mcp_server/server.py</code>, using FastMCP's <code>custom_route</code>), verified live with <code>curl</code> against a running server, then tested via an ASGI test client — 4 real tests now, including <code>/ready</code> correctly returning <code>503</code> when a remote-profile deployment has no auth configured.</p>
+      </div>
+      <div class="skip-item">
+        <span class="k found">Fixed — the broken import, then replaced two vacuous tests</span>
+        <p><code>test_client_connect_stdio</code> &amp; <code>test_client_initialization</code> never actually ran — the module-level import named a class, <code>StdioClientTransport</code>, that has never existed in the Python MCP SDK (it's the <strong>TypeScript</strong> SDK's class name; the real API is <code>stdio_client</code> + <code>StdioServerParameters</code>). Even once fixed, both bodies only checked <code>ClientSession is not None</code> — true of any class. Replaced with tests that spawn the real server and drive it through the official SDK client: connect, initialize, list all 13 tools, call one and check the result.</p>
+      </div>
+    </div>
+    <p class="note" style="margin-top:4px">Also removed, as genuinely unused: <code>InitializeResult</code>, <code>Tool</code>, <code>patch</code>, <code>AsyncMock</code>, <code>Any</code>, <code>Dict</code> — none referenced anywhere in the file outside their own import line.</p>
+  </section>
+
+  <section>
+    <h2>MCP spec compliance audit — 2 more gaps, found by reading the spec, not the tests</h2>
+    <p class="note">After every bug above was fixed, a separate pass checked the server against the actual <a href="https://modelcontextprotocol.io/specification/2025-06-18/server/tools">MCP specification</a> instead of this project's own test suite. Confirmed already-correct: stdout hygiene, error-handling semantics, and DNS-rebinding defaults for the default localhost deployment. Two real gaps found and fixed — neither was reachable by any test above, because they're missing protocol metadata and missing transport config, not input-validation bugs.</p>
+    <div class="skip-list">
+      <div class="skip-item">
+        <span class="k found">Fixed — zero tool annotations, on all 13 tools</span>
+        <p>The spec defines <code>readOnlyHint</code>/<code>destructiveHint</code>/<code>idempotentHint</code>/<code>openWorldHint</code> specifically so a client can tell a safe read apart from a state-changing write before prompting a human for approval. Every tool here looked identical to a client trying to make that call. Added a <code>TOOL_METADATA</code> map applied to both the stdio and HTTP-transport instances: 12 generators/lookups get <code>readOnlyHint=True</code>; <code>update_versions</code> — the one tool that mutates server state — is the sole exception.</p>
+      </div>
+      <div class="skip-item">
+        <span class="k found">Fixed — DNS-rebinding protection silently disabled for remote deployment</span>
+        <p>The SDK auto-enables Origin/Host validation only for <code>127.0.0.1</code>/<code>localhost</code>/<code>::1</code>. Binding <code>0.0.0.0</code> — required inside a container, and what the project's own <code>docker-compose.yml</code> "remote" profile already does — silently turns that protection off. Added <code>_build_transport_security()</code> plus two new env vars (<code>DEVOPS_OS_ALLOWED_HOSTS</code>/<code>DEVOPS_OS_ALLOWED_ORIGINS</code>): enables real protection when a deployment configures its allowlist, logs a loud warning when it hasn't — there's no safe default to guess for a domain the server knows nothing about.</p>
+      </div>
+    </div>
+    <footer>Full methodology: <code>docs/mcp/MCP-TEST-STRATEGY.md</code> &middot; bug-fix trail: <code>mcp-validation/TEST_REPORT.md</code> &middot; operator-facing setup: <code>docs/mcp/HTTP-SETUP.md</code></footer>
+  </section>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+const fileData = [
+  { name: 'test_comprehensive.py',       pass: 162 },
+  { name: 'test_scenario_based.py',      pass: 93  },
+  { name: 'test_hardening_scaffold.py',  pass: 87  },
+  { name: 'test_http.py',                pass: 31  },
+  { name: 'test_config.py',              pass: 23  },
+  { name: 'test_auth.py',                pass: 22  },
+  { name: 'test_prompt_suggestions.py',  pass: 22  },
+  { name: 'test_server.py',              pass: 21  },
+  { name: 'test_mcp_protocol.py',        pass: 16  },
+  { name: 'test_concurrency.py',         pass: 13  },
+];
+
+const scenarioData = [
+  { name: 'Happy path',          n: 31, color: 'var(--cat-1)' },
+  { name: 'Boundary',            n: 21, color: 'var(--cat-2)' },
+  { name: 'Adversarial / security', n: 16, color: 'var(--cat-3)' },
+  { name: 'Invalid / rejected',  n: 12, color: 'var(--cat-4)' },
+  { name: 'Cross-parameter',     n: 11, color: 'var(--cat-5)' },
+  { name: 'Determinism',         n: 2,  color: 'var(--cat-6)' },
+];
+
+function tip(el, text, ev) {
+  const t = document.getElementById('tip');
+  t.textContent = text;
+  t.style.left = (ev.clientX + 12) + 'px';
+  t.style.top = (ev.clientY - 10) + 'px';
+  t.classList.add('show');
+}
+function tipHide() { document.getElementById('tip').classList.remove('show'); }
+
+function renderStacked(containerId, data) {
+  const max = Math.max(...data.map(d => d.pass));
+  const el = document.getElementById(containerId);
+  el.innerHTML = data.map(d => {
+    const passPct = (d.pass / max * 100).toFixed(2);
+    return `<div class="bar-row">
+      <div class="bar-label" title="${d.name}">${d.name}</div>
+      <div class="bar-track">
+        <div class="bar-seg pass" style="width:${passPct}%"
+             data-tip="${d.name}: ${d.pass} passed"></div>
+      </div>
+      <div class="bar-count">${d.pass}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.bar-seg').forEach(seg => {
+    seg.addEventListener('mousemove', e => tip(seg, seg.dataset.tip, e));
+    seg.addEventListener('mouseleave', tipHide);
+  });
+}
+
+function renderCategorical(containerId, data) {
+  const max = Math.max(...data.map(d => d.n));
+  const el = document.getElementById(containerId);
+  el.innerHTML = data.map(d => {
+    const pct = (d.n / max * 100).toFixed(2);
+    return `<div class="bar-row">
+      <div class="bar-label" title="${d.name}">${d.name}</div>
+      <div class="bar-track">
+        <div class="bar-seg" style="width:${pct}%; background:${d.color}" data-tip="${d.name}: ${d.n} tests"></div>
+      </div>
+      <div class="bar-count">${d.n}</div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.bar-seg').forEach(seg => {
+    seg.addEventListener('mousemove', e => tip(seg, seg.dataset.tip, e));
+    seg.addEventListener('mouseleave', tipHide);
+  });
+}
+
+renderStacked('chart1', fileData);
+renderCategorical('chart2', scenarioData);
+
+const areaRows = [
+  ['test_comprehensive.py', 162, 'Core generator logic — GHA, Jenkins, GitLab CI, K8s, ArgoCD, SRE, devcontainer, unittest scaffolds (CLI + MCP-wrapper level)'],
+  ['test_scenario_based.py', 93, 'New scenario-matrix suite across all 13 MCP tools (today\'s work)'],
+  ['test_hardening_scaffold.py', 87, 'Security/compliance policy generation — Kyverno, InSpec, Checkov (CIS, STIG, NSA, ASVS L1, Essential Eight)'],
+  ['test_http.py', 31, 'HTTP transport config, error handling, logging/redaction, concurrent-request isolation, real /health+/ready routes, real MCP SDK client, tool annotations, DNS-rebinding transport security'],
+  ['test_config.py', 23, 'Config dataclass + every input validator function + DNS-rebinding allowlist parsing'],
+  ['test_auth.py', 22, 'Correlation IDs, redaction, JWT/local token verifiers'],
+  ['test_prompt_suggestions.py', 22, 'Prompt-analysis + suggestion-engine logic in isolation'],
+  ['test_server.py', 21, 'Direct in-process calls to all 13 tool functions — happy path only'],
+  ['test_mcp_protocol.py', 16, 'Real MCP wire protocol over the actual server subprocess'],
+  ['test_concurrency.py', 13, 'ConcurrencyManager semaphore/stats logic'],
+];
+document.getElementById('area-table').innerHTML = areaRows.map(r =>
+  `<tr><td class="file">${r[0]}</td><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`
+).join('');
+</script>

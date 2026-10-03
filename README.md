@@ -4,11 +4,11 @@
 
 **MCP (Model Context Protocol) implementation of DevOps-OS — Generate production-ready CI/CD pipelines, Kubernetes configs, and SRE dashboards using Claude Desktop, ChatGPT, or any MCP-compatible AI assistant.**
 
-- 💬 **Ask Claude / ChatGPT:** Use DevOps-OS MCP server to generate pipelines and configs with conversational AI
-- 🔌 **Plug into APIs:** Integrate with Anthropic and OpenAI function calling
-- 🚀 **AI-First Interface:** High-performance MCP backend for seamless AI integration
+💬 **Ask Claude / ChatGPT:** Use DevOps-OS MCP server to generate pipelines and configs with conversational AI
 
-**📌 Note:** This is the MCP implementation. For the original CLI tool, see [cloudengine-labs/devops_os](https://github.com/cloudengine-labs/devops_os).
+🔌 **Plug into APIs:** Integrate with Anthropic and OpenAI function calling
+
+🚀 **AI-First Interface:** High-performance MCP backend for seamless AI integration
 
 [![CI](https://github.com/cloudengine-labs/devops_os/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudengine-labs/devops_os/actions/workflows/ci.yml)
 [![Sanity Tests](https://github.com/cloudengine-labs/devops_os/actions/workflows/sanity.yml/badge.svg)](https://github.com/cloudengine-labs/devops_os/actions/workflows/sanity.yml)
@@ -21,6 +21,8 @@
 <br/>
 
 > **Category:** DevOps Automation · AI-Assisted Infrastructure · GitOps · SRE Tooling · MCP Integration
+
+**📌 Note:** This is the MCP implementation. For the original CLI tool, see [cloudengine-labs/devops_os](https://github.com/cloudengine-labs/devops_os).
 
 </div>
 

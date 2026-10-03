@@ -3,7 +3,7 @@
 **Date:** 2026-10-03
 **Scope:** all 13 tools exposed by the `devops-os` MCP server (`mcp_server/server.py`)
 **Test suite:** `tests/test_scenario_based.py` (84 tests), building on the existing `tests/` + `mcp_server/test_*.py` suite (382 tests). Current total as of the spec-compliance audit below: 490 tests, 0 failed, 0 skipped.
-**Related:** [`mcp-validation/TEST_REPORT.md`](../../mcp-validation/TEST_REPORT.md) (the incident log — how 3 of these bugs were actually found and fixed), `tests/test_mcp_protocol.py` (live wire-protocol tests this strategy reuses)
+**Related:** [`mcp-validation/TEST_REPORT.md`](../../mcp-validation/TEST_REPORT.md) (the incident log — how 3 of these bugs were actually found and fixed), `tests/test_mcp_protocol.py` (live wire-protocol tests this strategy reuses), [`docs/testing/mcp-test-coverage-report.html`](../testing/mcp-test-coverage-report.html) (visual coverage report — open in a browser, charts per functional area and scenario nature)
 
 ---
 
