@@ -1,0 +1,112 @@
+<svg viewBox="0 0 1200 650" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DevOps-OS MCP Server architecture: three MCP clients (Claude, ChatGPT, other MCP clients) send natural-language requests into the DevOps-OS MCP Server, which exposes 13 tools that generate configs across six areas -- CI/CD pipelines, Kubernetes and GitOps, SRE and observability, security and hardening, dev containers, and version management.">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e27"/>
+      <stop offset="100%" stop-color="#161b36"/>
+    </linearGradient>
+    <linearGradient id="hub" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <marker id="arr-8b5cf6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#8b5cf6"/></marker>
+    <marker id="arr-6366f1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#6366f1"/></marker>
+    <marker id="arr-3b82f6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#3b82f6"/></marker>
+    <marker id="arr-f59e0b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#f59e0b"/></marker>
+    <marker id="arr-06b6d4" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#06b6d4"/></marker>
+    <marker id="arr-10b981" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#10b981"/></marker>
+    <marker id="arr-f43f5e" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#f43f5e"/></marker>
+    <marker id="arr-14b8a6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#14b8a6"/></marker>
+    <marker id="arr-c084fc" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#c084fc"/></marker>
+  </defs>
+
+  <rect width="1200" height="650" fill="url(#bg)"/>
+
+  <!-- Title band -->
+  <text x="600" y="48" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="30" font-weight="700" fill="#ffffff" text-anchor="middle">DevOps-OS MCP Server</text>
+  <text x="600" y="76" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="14" fill="#9ca3af" text-anchor="middle">Natural-language requests in, production-ready DevOps configs out -- 13 tools, one protocol</text>
+
+  <!-- Flow labels -->
+  <text x="350" y="108" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="#9ca3af" text-anchor="middle" letter-spacing="0.5">ASK IN PLAIN ENGLISH</text>
+  <text x="850" y="108" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="#9ca3af" text-anchor="middle" letter-spacing="0.5">GENERATES</text>
+
+  <!-- ===== LEFT: MCP clients ===== -->
+  <g font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+    <!-- Claude -->
+    <rect x="40" y="120" width="220" height="130" rx="10" fill="#8b5cf6" fill-opacity="0.16" stroke="#8b5cf6" stroke-width="1.5"/>
+    <text x="150" y="178" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">Claude</text>
+    <text x="150" y="200" font-size="12" fill="#c4b5fd" text-anchor="middle">Desktop &amp; Claude Code</text>
+
+    <!-- ChatGPT -->
+    <rect x="40" y="280" width="220" height="130" rx="10" fill="#6366f1" fill-opacity="0.16" stroke="#6366f1" stroke-width="1.5"/>
+    <text x="150" y="338" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">ChatGPT</text>
+    <text x="150" y="360" font-size="12" fill="#a5b4fc" text-anchor="middle">Custom GPT Actions</text>
+
+    <!-- Other MCP clients -->
+    <rect x="40" y="440" width="220" height="130" rx="10" fill="#3b82f6" fill-opacity="0.16" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="150" y="498" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">Other MCP Clients</text>
+    <text x="150" y="520" font-size="12" fill="#93c5fd" text-anchor="middle">Any stdio/HTTP MCP host</text>
+  </g>
+
+  <!-- Input arrows: client -> hub, each a straight line at the client's own vertical center -->
+  <g stroke-width="2.5" fill="none">
+    <line x1="260" y1="185" x2="438" y2="185" stroke="#8b5cf6" marker-end="url(#arr-8b5cf6)"/>
+    <line x1="260" y1="345" x2="438" y2="345" stroke="#6366f1" marker-end="url(#arr-6366f1)"/>
+    <line x1="260" y1="505" x2="438" y2="505" stroke="#3b82f6" marker-end="url(#arr-3b82f6)"/>
+  </g>
+
+  <!-- ===== CENTER: the hub ===== -->
+  <rect x="440" y="110" width="320" height="480" rx="16" fill="url(#hub)" fill-opacity="0.18" stroke="url(#hub)" stroke-width="2"/>
+  <g font-family="system-ui,-apple-system,Segoe UI,sans-serif" text-anchor="middle">
+    <text x="600" y="275" font-size="22" font-weight="700" fill="#ffffff">DevOps-OS</text>
+    <text x="600" y="302" font-size="16" fill="#e0d4ff">MCP Server</text>
+    <line x1="520" y1="325" x2="680" y2="325" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1"/>
+    <text x="600" y="355" font-size="26" font-weight="700" fill="#ffffff">13</text>
+    <text x="600" y="376" font-size="12" fill="#c4b5fd">validated tools</text>
+    <text x="600" y="420" font-size="11.5" fill="#d1d5db">input validation</text>
+    <text x="600" y="438" font-size="11.5" fill="#d1d5db">&#8595;</text>
+    <text x="600" y="456" font-size="11.5" fill="#d1d5db">config generator</text>
+    <text x="600" y="474" font-size="11.5" fill="#d1d5db">&#8595;</text>
+    <text x="600" y="492" font-size="11.5" fill="#d1d5db">YAML / JSON out</text>
+    <text x="600" y="545" font-size="11" fill="#9ca3af">stdio &amp; Streamable HTTP</text>
+    <text x="600" y="562" font-size="11" fill="#9ca3af">MCP spec 2025-06-18</text>
+  </g>
+
+  <!-- Output arrows: hub -> each category, landing at that card's vertical center -->
+  <g stroke-width="2" stroke-dasharray="6,5" fill="none">
+    <line x1="762" y1="154" x2="938" y2="154" stroke="#f59e0b" marker-end="url(#arr-f59e0b)"/>
+    <line x1="762" y1="232" x2="938" y2="232" stroke="#06b6d4" marker-end="url(#arr-06b6d4)"/>
+    <line x1="762" y1="310" x2="938" y2="310" stroke="#10b981" marker-end="url(#arr-10b981)"/>
+    <line x1="762" y1="388" x2="938" y2="388" stroke="#f43f5e" marker-end="url(#arr-f43f5e)"/>
+    <line x1="762" y1="466" x2="938" y2="466" stroke="#14b8a6" marker-end="url(#arr-14b8a6)"/>
+    <line x1="762" y1="544" x2="938" y2="544" stroke="#c084fc" marker-end="url(#arr-c084fc)"/>
+  </g>
+
+  <!-- ===== RIGHT: 6 output categories ===== -->
+  <g font-family="system-ui,-apple-system,Segoe UI,sans-serif">
+    <rect x="940" y="120" width="220" height="68" rx="8" fill="#f59e0b" fill-opacity="0.16" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="1050" y="146" font-size="13.5" font-weight="700" fill="#ffffff" text-anchor="middle">CI/CD Pipelines</text>
+    <text x="1050" y="165" font-size="10.5" fill="#fcd34d" text-anchor="middle">GitHub Actions &#183; GitLab CI &#183; Jenkins</text>
+
+    <rect x="940" y="198" width="220" height="68" rx="8" fill="#06b6d4" fill-opacity="0.16" stroke="#06b6d4" stroke-width="1.5"/>
+    <text x="1050" y="224" font-size="13.5" font-weight="700" fill="#ffffff" text-anchor="middle">Kubernetes &amp; GitOps</text>
+    <text x="1050" y="243" font-size="10.5" fill="#67e8f9" text-anchor="middle">Manifests &#183; ArgoCD &#183; Flux</text>
+
+    <rect x="940" y="276" width="220" height="68" rx="8" fill="#10b981" fill-opacity="0.16" stroke="#10b981" stroke-width="1.5"/>
+    <text x="1050" y="302" font-size="13.5" font-weight="700" fill="#ffffff" text-anchor="middle">SRE &amp; Observability</text>
+    <text x="1050" y="321" font-size="10.5" fill="#6ee7b7" text-anchor="middle">Prometheus &#183; Grafana &#183; SLOs</text>
+
+    <rect x="940" y="354" width="220" height="68" rx="8" fill="#f43f5e" fill-opacity="0.16" stroke="#f43f5e" stroke-width="1.5"/>
+    <text x="1050" y="380" font-size="13.5" font-weight="700" fill="#ffffff" text-anchor="middle">Security &amp; Hardening</text>
+    <text x="1050" y="399" font-size="10.5" fill="#fda4af" text-anchor="middle">Kyverno &#183; InSpec &#183; CIS</text>
+
+    <rect x="940" y="432" width="220" height="68" rx="8" fill="#14b8a6" fill-opacity="0.16" stroke="#14b8a6" stroke-width="1.5"/>
+    <text x="1050" y="458" font-size="13.5" font-weight="700" fill="#ffffff" text-anchor="middle">Dev Containers &amp; Tests</text>
+    <text x="1050" y="477" font-size="10.5" fill="#5eead4" text-anchor="middle">devcontainer.json &#183; pytest &#183; Jest</text>
+
+    <rect x="940" y="510" width="220" height="68" rx="8" fill="#c084fc" fill-opacity="0.16" stroke="#c084fc" stroke-width="1.5"/>
+    <text x="1050" y="536" font-size="13.5" font-weight="700" fill="#ffffff" text-anchor="middle">Version Management</text>
+    <text x="1050" y="555" font-size="10.5" fill="#e9d5ff" text-anchor="middle">Check &#183; suggest &#183; update &#183; audit</text>
+  </g>
+
+  <text x="600" y="630" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="11" fill="#6b7280" text-anchor="middle">github.com/chefgs/devops_os_mcp</text>
+</svg>

@@ -31,7 +31,7 @@
 ## 📊 How It Works
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/chefgs/devops_os_mcp/main/assets/devops-os-mcp-how-it-works.png" alt="DevOps-OS MCP Architecture" width="100%" style="max-width: 1200px;"/>
+  <img src="https://raw.githubusercontent.com/chefgs/devops_os_mcp/main/assets/devops-os-mcp-how-it-works.svg" alt="DevOps-OS MCP Architecture: Claude, ChatGPT, and other MCP clients send natural-language requests to the DevOps-OS MCP Server, which exposes 13 tools that generate configs across six areas -- CI/CD pipelines, Kubernetes and GitOps, SRE and observability, security and hardening, dev containers and tests, and version management." width="100%" style="max-width: 1200px;"/>
 </div>
 
 ---
