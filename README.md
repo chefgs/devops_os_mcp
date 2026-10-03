@@ -10,8 +10,8 @@
 
 🚀 **AI-First Interface:** High-performance MCP backend for seamless AI integration
 
-[![CI](https://github.com/cloudengine-labs/devops_os/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudengine-labs/devops_os/actions/workflows/ci.yml)
-[![Sanity Tests](https://github.com/cloudengine-labs/devops_os/actions/workflows/sanity.yml/badge.svg)](https://github.com/cloudengine-labs/devops_os/actions/workflows/sanity.yml)
+[![CI](https://github.com/chefgs/devops_os_mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/chefgs/devops_os_mcp/actions/workflows/ci.yml)
+[![Sanity Tests](https://github.com/chefgs/devops_os_mcp/actions/workflows/sanity.yml/badge.svg)](https://github.com/chefgs/devops_os_mcp/actions/workflows/sanity.yml)
 [![Version](https://img.shields.io/badge/version-0.4.7-blue)](CHANGELOG.md)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -130,8 +130,8 @@ DevOps-OS exposes all its generators as an **MCP server**, so you can ask Claude
 #### Install & Connect to Claude Desktop
 
 ```bash
-git clone https://github.com/cloudengine-labs/devops_os.git
-cd devops_os
+git clone https://github.com/chefgs/devops_os_mcp.git
+cd devops_os_mcp
 
 python3 -m venv .venv
 source .venv/bin/activate  # macOS/Linux
@@ -181,7 +181,7 @@ For the **original CLI tool**, see [cloudengine-labs/devops_os](https://github.c
 
 ```bash
 # Clone and install MCP server dependencies
-git clone https://github.com/cloudengine-labs/devops_os.git && cd devops_os
+git clone https://github.com/chefgs/devops_os_mcp.git && cd devops_os_mcp
 python3 -m venv .venv
 source .venv/bin/activate  # macOS/Linux
 pip install -r mcp_server/requirements.txt
