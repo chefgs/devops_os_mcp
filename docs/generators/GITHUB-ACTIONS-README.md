@@ -318,7 +318,7 @@ Notes:
 
 | Scan | Covers | Notes |
 |---|---|---|
-| `gitleaks` | secrets in git history | CLI downloaded from the release and checksum-verified (the official action needs a paid licence for organisation repos); full-history checkout. Test fixtures that look like keys will be reported; add a `.gitleaksignore`. |
+| `gitleaks` | secrets in git history | CLI downloaded from the release and checksum-verified (the official action needs a paid licence for organisation repos); full-history checkout. Test fixtures that look like keys will be reported; allowlist them with a `.gitleaks.toml` (`[extend] useDefault = true` plus `[allowlist] paths = [...]`, as in this repo) rather than disabling the scan. |
 | `semgrep` | SAST | `p/default` rules, fails on ERROR severity, telemetry off |
 | `trivy` | dependency and config CVEs | fails on CRITICAL/HIGH with a fix available |
 | `checkov` | IaC (Terraform, Dockerfile, Kubernetes) | fails on any failed check, so expect findings on the first run |

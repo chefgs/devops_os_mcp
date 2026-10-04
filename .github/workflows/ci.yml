@@ -22,10 +22,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r mcp_server/requirements.txt pytest
+          pip install -r mcp_server/requirements.txt pytest actionlint-py shellcheck-py
 
       - name: Run MCP server tests
         run: pytest mcp_server/test_server.py tests/ -v
+        env:
+          # Lets tests/test_action_pins_live.py verify pinned actions against GitHub.
+          GH_TOKEN: ${{ github.token }}
 
   http-integration:
     runs-on: ubuntu-latest
@@ -47,4 +50,3 @@ jobs:
 
       - name: Run smoke test (stdio)
         run: python3 scripts/smoke-test.py --transport stdio
-        continue-on-error: true

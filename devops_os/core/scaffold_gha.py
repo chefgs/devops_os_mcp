@@ -461,7 +461,7 @@ def _test_steps(args, values, configs):
         ]
         if analysis.get("pylint", False):
             steps.append({"name": "Run Pylint",
-                          "run": "if command -v pylint &> /dev/null; then pylint --disable=C0111 **/*.py; fi"})
+                          "run": "if command -v pylint &> /dev/null; then git ls-files '*.py' | xargs -r pylint --disable=C0111; fi"})
     if langs.get("java", False):
         steps += [
             {"name": "Run Java tests with Maven",
@@ -504,24 +504,35 @@ def _test_steps(args, values, configs):
 
 
 def _docker_push_step(args, token_secret):
+    """Build and push the image.
+
+    The registry token reaches the script through ``env:`` and ``printf`` rather than
+    being pasted into the script text, so quotes or ``$(...)`` in a secret cannot break
+    or inject into the command. The tag is lower-cased because Docker rejects upper-case
+    repository names and GitHub owners often have them.
+    """
     reg = args.registry
-    image = f"{reg}/${{{{ github.repository_owner }}}}/${{{{ github.event.repository.name }}}}:latest"
     return {
         "name": "Build and Push Docker Image",
         # Skip quietly for repos without a Dockerfile instead of failing the deploy.
         "if": "github.ref == 'refs/heads/main' && hashFiles('Dockerfile') != ''",
+        "env": {"REGISTRY_TOKEN": f"${{{{ secrets.{token_secret} }}}}"},
         "run": "\n".join([
-            f"echo \"${{{{ secrets.{token_secret} }}}}\" | docker login {reg} -u ${{{{ github.actor }}}} --password-stdin",
-            f"docker build -t {image} .",
-            f"docker push {image}",
+            f"printf '%s' \"$REGISTRY_TOKEN\" | docker login {reg} -u \"$GITHUB_ACTOR\" --password-stdin",
+            f"IMAGE=\"{reg}/$(printf '%s' \"$GITHUB_REPOSITORY\" | tr '[:upper:]' '[:lower:]'):latest\"",
+            "docker build -t \"$IMAGE\" .",
+            "docker push \"$IMAGE\"",
         ]),
     }
 
 
+# The kubeconfig reaches the script through env: it routinely contains quotes and
+# newlines that would break (or inject into) a secret pasted into the script text.
+_KUBECONFIG_ENV = {"KUBECONFIG_DATA": "${{ secrets.KUBECONFIG }}"}
 _KUBECONFIG_RUN = [
-    "mkdir -p $HOME/.kube",
-    "echo \"${{ secrets.KUBECONFIG }}\" > $HOME/.kube/config",
-    "chmod 600 $HOME/.kube/config",
+    "umask 077",
+    "mkdir -p \"$HOME/.kube\"",
+    "printf '%s\\n' \"$KUBECONFIG_DATA\" > \"$HOME/.kube/config\"",
 ]
 
 
@@ -553,7 +564,7 @@ def _k8s_steps(args, values):
     needs_install = not _container_image(args, values)
     method = args.k8s_method
     if method == "kubectl":
-        return [{"name": "Deploy to Kubernetes", "if": cond, "run": "\n".join(
+        return [{"name": "Deploy to Kubernetes", "if": cond, "env": dict(_KUBECONFIG_ENV), "run": "\n".join(
             _KUBECONFIG_RUN + [
                 "kubectl apply -f ./k8s/deployment.yaml",
                 "kubectl apply -f ./k8s/service.yaml",
@@ -561,15 +572,16 @@ def _k8s_steps(args, values):
     if method == "kustomize":
         return [{"name": "Deploy to Kubernetes with Kustomize", "if": cond,
                  "run": "\n".join(_KUBECONFIG_RUN + [
-                     "kubectl apply -k ./k8s/overlays/${ENVIRONMENT}",
+                     "kubectl apply -k \"./k8s/overlays/$ENVIRONMENT\"",
                      "kubectl rollout status deployment/my-app"]),
-                 "env": {"ENVIRONMENT": "${{ github.event.inputs.environment || 'dev' }}"}}]
+                 "env": {**_KUBECONFIG_ENV,
+                         "ENVIRONMENT": "${{ github.event.inputs.environment || 'dev' }}"}}]
     if method == "argocd":
         steps = [_argocd_install_step()] if needs_install else []
         steps.append({
             "name": "Deploy with ArgoCD", "if": cond,
             "run": "\n".join([
-                "argocd login $ARGOCD_SERVER --username $ARGOCD_USERNAME --password $ARGOCD_PASSWORD --insecure",
+                "argocd login \"$ARGOCD_SERVER\" --username \"$ARGOCD_USERNAME\" --password \"$ARGOCD_PASSWORD\" --insecure",
                 "argocd app sync my-application",
                 "argocd app wait my-application --health"]),
             "env": {"ARGOCD_SERVER": "${{ secrets.ARGOCD_SERVER }}",
@@ -864,10 +876,12 @@ def generate_reusable_workflow(args, values, configs):
         _checkout_step(args),
         {"name": "Parse input configurations", "id": "config", "env": config_env,
          "run": "\n".join([
-             "echo \"languages=$LANGUAGES\" >> $GITHUB_OUTPUT",
-             "echo \"k8s_deploy=$K8S_DEPLOY\" >> $GITHUB_OUTPUT",
-             "echo \"k8s_method=$K8S_METHOD\" >> $GITHUB_OUTPUT",
-             "echo \"env=$TARGET_ENV\" >> $GITHUB_OUTPUT"])},
+             "{",
+             "  echo \"languages=$LANGUAGES\"",
+             "  echo \"k8s_deploy=$K8S_DEPLOY\"",
+             "  echo \"k8s_method=$K8S_METHOD\"",
+             "  echo \"env=$TARGET_ENV\"",
+             "} >> \"$GITHUB_OUTPUT\""])},
         _docker_push_step(args, "registry_token"),
     ]
     k8s_cond = "github.ref == 'refs/heads/main' && steps.config.outputs.k8s_deploy == 'true'"
@@ -886,18 +900,16 @@ def generate_reusable_workflow(args, values, configs):
                 "ARGOCD_USERNAME": "${{ secrets.ARGOCD_USERNAME }}",
                 "ARGOCD_PASSWORD": "${{ secrets.ARGOCD_PASSWORD }}"},
         "run": "\n".join([
-            "mkdir -p $HOME/.kube",
-            "echo \"$KUBECONFIG_DATA\" > $HOME/.kube/config",
-            "chmod 600 $HOME/.kube/config",
+            *_KUBECONFIG_RUN,
             "if [[ \"$K8S_METHOD\" == \"kubectl\" ]]; then",
             "  kubectl apply -f ./k8s/deployment.yaml",
             "  kubectl apply -f ./k8s/service.yaml",
             "  kubectl rollout status deployment/my-app",
             "elif [[ \"$K8S_METHOD\" == \"kustomize\" ]]; then",
-            "  kubectl apply -k ./k8s/overlays/$TARGET_ENV",
+            "  kubectl apply -k \"./k8s/overlays/$TARGET_ENV\"",
             "  kubectl rollout status deployment/my-app",
             "elif [[ \"$K8S_METHOD\" == \"argocd\" ]]; then",
-            "  argocd login $ARGOCD_SERVER --username $ARGOCD_USERNAME --password $ARGOCD_PASSWORD --insecure",
+            "  argocd login \"$ARGOCD_SERVER\" --username \"$ARGOCD_USERNAME\" --password \"$ARGOCD_PASSWORD\" --insecure",
             "  argocd app sync my-application",
             "  argocd app wait my-application --health",
             "elif [[ \"$K8S_METHOD\" == \"flux\" ]]; then",

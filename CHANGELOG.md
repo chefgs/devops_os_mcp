@@ -25,7 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The Docker build/push step is skipped when the repository has no `Dockerfile`, instead of failing the deploy job.
 - The server now exposes 16 tools (was 13).
 
+### Fixed
+- Generated deploy scripts no longer paste secrets into script text. The registry token and kubeconfig now go through `env:` and `printf`, so a secret containing quotes, newlines or `$(...)` can no longer break or inject into the step (found by running the generated scripts against stub commands, `tests/test_gha_deploy_mock.py`).
+- Docker image tags are lower-cased (Docker rejects upper-case repository names, which GitHub owners often have) and use the runner's `$GITHUB_ACTOR` / `$GITHUB_REPOSITORY`.
+- ArgoCD login arguments, `$GITHUB_OUTPUT` writes and kustomize overlay paths are quoted (shellcheck clean).
+- Python lint step used `pylint **/*.py`, which without `globstar` only matched one directory level; it now lints `git ls-files '*.py'`.
+- `scripts/smoke-test.py` used SDK classes that do not exist (`StdioClientTransport`) and had been failing silently behind `continue-on-error`; it now uses `stdio_client` and the CI step is enforced.
+- Added `.gitleaks.toml` allowlisting the fake credentials in test fixtures, and `.DS_Store` to `.gitignore`.
+
 ### Added
+- Guard tests: `tests/test_gha_deploy_mock.py` (runs deploy scripts against stubs), `tests/test_gha_lint.py` (actionlint + shellcheck over a generated matrix) and `tests/test_action_pins_live.py` (verifies pinned SHAs and emitted `with:` inputs against GitHub; skipped without an authenticated `gh`).
 - `security_scans` option (`--security-scans`) and `security` workflow type for `generate_github_actions_workflow`: `gitleaks`, `semgrep`, `trivy`, `checkov`, `codeql` as jobs; `complete` deployments wait for them. Scanner versions are pinned and the Gitleaks download is checksum-verified.
 - New tool `generate_dependabot_config`: `.github/dependabot.yml` for chosen ecosystems (language aliases accepted), always including `github-actions`, with minor/patch updates grouped.
 - New tool `audit_github_workflow`: reports capabilities covered/missing and hardening findings for an existing workflow, without modifying it.
