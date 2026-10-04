@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The server now exposes 16 tools (was 13).
 
 ### Fixed
+- Jenkins generator no longer hard-codes the non-existent `docker.io/yourorg/devops-os:latest` agent image: the default is `agent any`, and a Docker agent is opt-in via `container_image` (`--image` on the CLI). The Jenkins node must provide the toolchains (and Docker for image builds) when no image is given.
+- `validate_image_reference` is now an allowlist (letters, digits, `. _ / : @ -`). The old blocklist let quotes and backslashes through, which could break out of the quoted string in a generated Jenkinsfile.
 - Generated deploy scripts no longer paste secrets into script text. The registry token and kubeconfig now go through `env:` and `printf`, so a secret containing quotes, newlines or `$(...)` can no longer break or inject into the step (found by running the generated scripts against stub commands, `tests/test_gha_deploy_mock.py`).
 - Docker image tags are lower-cased (Docker rejects upper-case repository names, which GitHub owners often have) and use the runner's `$GITHUB_ACTOR` / `$GITHUB_REPOSITORY`.
 - ArgoCD login arguments, `$GITHUB_OUTPUT` writes and kustomize overlay paths are quoted (shellcheck clean).

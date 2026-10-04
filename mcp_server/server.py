@@ -109,6 +109,7 @@ def _build_jenkins_args(
     k8s_method: str,
     parameters: bool,
     output_path: str,
+    container_image: str = "",
 ) -> argparse.Namespace:
     """Build an argparse.Namespace compatible with scaffold_jenkins functions."""
     return argparse.Namespace(
@@ -120,7 +121,7 @@ def _build_jenkins_args(
         output=output_path,
         parameters=parameters or (pipeline_type == "parameterized"),
         custom_values=None,
-        image="docker.io/yourorg/devops-os:latest",
+        image=container_image,
         scm="git",
         env_file=None,
         registry="docker.io",
@@ -619,6 +620,7 @@ def generate_jenkins_pipeline(
     kubernetes: bool = False,
     k8s_method: str = "kubectl",
     parameters: bool = False,
+    container_image: str = "",
     user_context: str = "",
 ) -> str:
     """Generate a Jenkins Declarative Pipeline (Jenkinsfile) as a string.
@@ -645,6 +647,7 @@ def generate_jenkins_pipeline(
     try:
         validate_tool_inputs(
             "generate_jenkins_pipeline", name=name, languages=languages, pipeline_type=pipeline_type,
+            container_image=container_image,
         )
     except ValidationError as e:
         raise ValueError(str(e)) from e
@@ -660,6 +663,7 @@ def generate_jenkins_pipeline(
             k8s_method=k8s_method,
             parameters=parameters,
             output_path=out_path,
+            container_image=container_image,
         )
 
         env_config = {}

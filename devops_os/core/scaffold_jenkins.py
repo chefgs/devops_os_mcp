@@ -60,9 +60,9 @@ def parse_arguments():
     parser.add_argument("--custom-values", 
                        help="Path to custom values JSON file",
                        default=os.environ.get(f"{ENV_PREFIX}CUSTOM_VALUES"))
-    parser.add_argument("--image", 
-                       help="DevOps-OS container image to use",
-                       default=os.environ.get(f"{ENV_PREFIX}IMAGE", "docker.io/yourorg/devops-os:latest"))
+    parser.add_argument("--image",
+                       help="Optional container image to run the pipeline in (default: none, uses 'agent any')",
+                       default=os.environ.get(f"{ENV_PREFIX}IMAGE", ""))
     parser.add_argument("--scm", choices=["git", "svn", "none"],
                        help="Source Control Management system to use",
                        default=os.environ.get(f"{ENV_PREFIX}SCM", "git"))
@@ -446,15 +446,21 @@ def generate_deploy_stage(args, configs):
 
 def generate_pipeline(args, configs):
     """Generate Jenkins pipeline."""
-    pipeline = [
-        "pipeline {",
-        "    agent {",
-        "        docker {",
-        f"            image '{args.image}'",
-        "            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'",
-        "        }",
-        "    }"
-    ]
+    image = getattr(args, "image", "") or ""
+    if image:
+        # Opt-in: the container mounts the Docker socket and runs as root.
+        agent = [
+            "    agent {",
+            "        docker {",
+            f"            image '{image}'",
+            "            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'",
+            "        }",
+            "    }",
+        ]
+    else:
+        # Runs on any node; the node must provide the toolchains (and Docker for image builds).
+        agent = ["    agent any"]
+    pipeline = ["pipeline {"] + agent
     
     # Add parameters block if enabled
     params_block = generate_parameters_block(args, configs)

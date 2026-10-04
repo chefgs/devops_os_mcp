@@ -85,13 +85,22 @@ def validate_image_reference(value: str) -> str:
                 f"Image reference contains invalid character: {repr(char)}"
             )
 
-    if re.search(r"\s", value):
-        raise ValidationError("Image reference must not contain whitespace")
+    # Allowlist: the characters valid in a Docker reference (name, tag, digest). This also
+    # keeps quotes and backslashes out, which would break out of the quoted string the
+    # reference is written into in generated Jenkinsfiles.
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/:@-]*", value):
+        raise ValidationError(
+            "Image reference may only contain letters, digits and . _ / : @ - "
+            f"(and must start with a letter or digit): {value!r}"
+        )
 
     # Basic docker reference format validation
     # Format: [registry/]name[:tag][@digest]
     # See: https://github.com/docker/distribution/blob/main/reference/reference.go
-    if value.count(":") > 1 and value.count("@") == 0:
+    # A tag colon may only appear in the last path segment; earlier colons belong to a
+    # registry host:port (e.g. registry.local:5000/team/app:latest).
+    name = value.split("@", 1)[0]
+    if name.rsplit("/", 1)[-1].count(":") > 1 or value.count("@") > 1:
         raise ValidationError(f"Invalid image reference format: {value}")
 
     return value
@@ -365,6 +374,8 @@ def validate_tool_inputs(tool_name: str, **kwargs) -> dict[str, Any]:
                 ["build", "test", "deploy", "complete", "parameterized"],
                 "pipeline_type",
             )
+        if validated.get("container_image"):
+            validated["container_image"] = validate_image_reference(validated["container_image"])
 
     # Tool: generate_gitlab_ci_pipeline
     elif tool_name == "generate_gitlab_ci_pipeline":

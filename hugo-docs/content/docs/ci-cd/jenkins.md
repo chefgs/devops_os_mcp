@@ -32,7 +32,7 @@ Change the output path with `--output <path>`.
 | `--k8s-method METHOD` | `kubectl` | `kubectl` \| `kustomize` \| `argocd` \| `flux` |
 | `--output FILE` | `Jenkinsfile` | Output file path |
 | `--custom-values FILE` | _(none)_ | Path to custom values JSON file |
-| `--image IMAGE` | `docker.io/yourorg/devops-os:latest` | DevOps-OS container image |
+| `--image IMAGE` | none (`agent any`) | Optional container image to run in. Adds a Docker agent that mounts the Docker socket and runs as root |
 | `--scm SCM` | `git` | Source control: `git` \| `svn` \| `none` |
 | `--parameters` | off | Add runtime parameters (auto-enabled for `--type parameterized`) |
 | `--env-file FILE` | _(cli dir)_ | Path to `devcontainer.env.json` |
@@ -89,12 +89,7 @@ python -m cli.devopsos scaffold jenkins \
 
 ```groovy
 pipeline {
-    agent {
-        docker {
-            image 'docker.io/yourorg/devops-os:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'
-        }
-    }
+    agent any   // or a Docker agent when --image / container_image is given
     parameters {
         booleanParam(name: 'PYTHON_ENABLED', defaultValue: true, ...)
         choice(name: 'ENVIRONMENT', choices: ['dev', 'test', 'staging', 'prod'], ...)
