@@ -319,11 +319,13 @@ def dump_workflow(workflow, args=None):
     Dependabot can tell which version a SHA is.
     """
     text = yaml.dump(workflow, sort_keys=False, Dumper=_NoAliasDumper, width=10_000)
-    secrets = DEPLOY_TARGETS.get(getattr(args, "deploy_target", "") or "", [])
-    if secrets:
+    # Only the *names* of the repository settings the target needs (a constant table); the
+    # generator never receives a credential value.
+    needed = DEPLOY_TARGETS.get(getattr(args, "deploy_target", "") or "", [])
+    if needed:
         text = ("# Create these repository secrets before the first run "
                 "(Settings > Secrets and variables > Actions):\n"
-                + "".join(f"#   {name}\n" for name in secrets)
+                + "".join(f"#   {name}\n" for name in needed)
                 + "# Test your setup locally first: call the generate_deploy_preflight tool "
                   f"(deploy_target={args.deploy_target}).\n" + text)
     if getattr(args, "pin_actions", False):
