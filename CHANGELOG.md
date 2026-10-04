@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New tool `audit_github_workflow`: reports capabilities covered/missing and hardening findings for an existing workflow, without modifying it.
 - New tool `analyze_repo`: detects stack, frameworks, package manager, hosting target and existing workflows (root plus immediate subdirectories) and returns recommended tool calls. Local profile only; fixed file list, size-capped, symlink-safe, returns no file contents.
 - Rust is now handled by the GitHub Actions generator (`cargo build`/`cargo test`).
-- `deploy_target` (`--deploy-target`) and `build_output_dir` options for `generate_github_actions_workflow`: `vercel`, `cloudflare-workers`, `cloudflare-pages`, `netlify`, `render`, `github-pages`. Combinations that would silently do nothing (a target on a build/test/reusable workflow, or with `kubernetes=true`) are rejected.
+- `deploy_target` (`--deploy-target`; scaffolding, not tested against live hosting accounts) and `build_output_dir` options for `generate_github_actions_workflow`: `vercel`, `cloudflare-workers`, `cloudflare-pages`, `netlify`, `render`, `github-pages`. Combinations that would silently do nothing (a target on a build/test/reusable workflow, or with `kubernetes=true`) are rejected.
 - `pin_actions` option (`--pin-actions` on the CLI) to pin actions to full commit SHAs with a `# vX.Y.Z` comment. Pins live in `scaffold_gha.ACTION_REFS`; a test fails if the generator emits an action that has no pin.
 - **MCP Dev Container Module** (`mcp_server/devcontainer_mcp.py`) with comprehensive language and tool support:
   - Multi-language support: Python, Java, Go, Node.js, Rust, Ruby, C/C++, PHP, C#, Kotlin, TypeScript, JavaScript

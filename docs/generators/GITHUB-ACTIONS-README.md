@@ -307,6 +307,8 @@ By default the deploy job builds and pushes a Docker image (and deploys to Kuber
 | `render` | POST to the service's deploy hook | `RENDER_DEPLOY_HOOK_URL` |
 | `github-pages` | `configure-pages`, `upload-pages-artifact`, `deploy-pages` (job gets `pages: write` and `id-token: write`; enable Pages with source "GitHub Actions") | none |
 
+> **Scaffolding, not a tested integration.** The deploy targets generate a starting point. The workflows are linted (actionlint and shellcheck), the scripts are exercised against stub CLIs, and the pinned CLIs and actions are checked for the flags and inputs used, but they have not been run against live Vercel, Cloudflare, Netlify, Render or GitHub Pages accounts. Review the generated job and run it once on a non-production project before relying on it.
+
 Notes:
 - The generated file starts with a comment listing the secrets to create; only secret *names* appear, never values.
 - Targets other than `render` build with `npm ci` and `npm run build`, so they assume a Node project. Set `build_output_dir` (`--build-output-dir`, default `dist`) to match your framework (`dist`, `build`, `out`).
