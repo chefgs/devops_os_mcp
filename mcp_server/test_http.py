@@ -307,7 +307,7 @@ class TestMCPProtocolCompat:
         from mcp_server import server
 
         tools = asyncio.run(server.mcp.list_tools())
-        assert len(tools) == 13, f"expected all 13 tools registered, got {len(tools)}"
+        assert len(tools) == 16, f"expected all 16 tools registered, got {len(tools)}"
         for tool in tools:
             assert tool.name, "tool missing a name"
             assert tool.description, f"tool '{tool.name}' missing a description"
@@ -613,7 +613,7 @@ class TestMCPSDKClient:
                 init_result = await session.initialize()
                 assert init_result.serverInfo.name == "devops-os"
                 tools = await session.list_tools()
-                assert len(tools.tools) == 13
+                assert len(tools.tools) == 16
 
     @pytest.mark.asyncio
     async def test_client_initialization_can_invoke_a_tool(self):

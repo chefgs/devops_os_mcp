@@ -17,7 +17,7 @@ This guide covers how to create and customize GitHub Actions workflow templates 
 
 ## Understanding the GitHub Actions Generator
 
-The GitHub Actions generator (`github-actions-generator-improved.py`) creates YAML workflow files that orchestrate continuous integration and deployment processes using GitHub's action system. The workflows leverage the DevOps-OS container to provide a consistent environment for building, testing, and deploying your applications.
+The GitHub Actions generator (`github-actions-generator-improved.py`) creates YAML workflow files that orchestrate continuous integration and deployment processes using GitHub's action system. By default the jobs run directly on GitHub-hosted `ubuntu-latest` runners and use the official `setup-*` actions for toolchains. Running jobs in a container image is optional (`--image` on the CLI, `container_image` on the MCP tool).
 
 ## Basic Usage
 
@@ -245,9 +245,10 @@ The generated GitHub Actions workflow includes:
 1. **Triggers**: Configures when the workflow runs (push, pull request, workflow dispatch).
 2. **Jobs**: Defines the jobs to run (build, test, deploy).
 3. **Steps**: Details the steps within each job.
-4. **Environment**: Sets up the execution environment using the DevOps-OS container.
+4. **Environment**: Runs on `ubuntu-latest` and installs toolchains with `actions/setup-python`, `setup-node`, `setup-go` and `setup-java` (or runs in your own container image if one is given).
 5. **Artifacts**: Configures artifact handling for sharing between jobs.
-6. **Deployments**: Includes deployment steps if Kubernetes is enabled.
+6. **Hardening**: Every workflow declares top-level `permissions: contents: read` and a `concurrency:` group. Superseded pull-request runs are cancelled; pushes to the default branch and deployments never are. Reusable workflows omit `concurrency:` because a called workflow shares its caller's group. Pass `--pin-actions` (CLI) or `pin_actions=true` (MCP) to pin every action to a full commit SHA with a version comment.
+7. **Deployments**: Includes deployment steps if Kubernetes is enabled.
 
 ### Example Structure
 
@@ -267,19 +268,21 @@ on:
         type: choice
         options: [dev, test, staging, prod]
 
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/yourorg/devops-os:latest
     steps:
       # Build steps here
       
   test:
     needs: build
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/yourorg/devops-os:latest
     steps:
       # Test steps here
       
@@ -287,11 +290,51 @@ jobs:
     needs: test
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/yourorg/devops-os:latest
     steps:
       # Deploy steps here
 ```
+
+## Deploy Targets
+
+By default the deploy job builds and pushes a Docker image (and deploys to Kubernetes if enabled). Set a hosting target to deploy to a platform instead (`--deploy-target` on the CLI, `deploy_target` on the MCP tool). It applies to the `deploy` and `complete` workflow types and cannot be combined with Kubernetes.
+
+| Target | Mechanism | Repository secrets |
+|---|---|---|
+| `vercel` | Vercel CLI (`pull`, `build --prod`, `deploy --prebuilt --prod`), version pinned | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` |
+| `cloudflare-workers` | `cloudflare/wrangler-action` (`wrangler deploy`) | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+| `cloudflare-pages` | `cloudflare/wrangler-action` (`pages deploy <dir>`, project name = app name) | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+| `netlify` | Netlify CLI (`deploy --prod --dir`), version pinned | `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID` |
+| `render` | POST to the service's deploy hook | `RENDER_DEPLOY_HOOK_URL` |
+| `github-pages` | `configure-pages`, `upload-pages-artifact`, `deploy-pages` (job gets `pages: write` and `id-token: write`; enable Pages with source "GitHub Actions") | none |
+
+Notes:
+- The generated file starts with a comment listing the secrets to create; only secret *names* appear, never values.
+- Targets other than `render` build with `npm ci` and `npm run build`, so they assume a Node project. Set `build_output_dir` (`--build-output-dir`, default `dist`) to match your framework (`dist`, `build`, `out`).
+- Deploys run only from `main`. Set the project up on the platform once (project, site or service) before the first run.
+
+## Security Scans
+
+`--security-scans` (CLI) / `security_scans` (MCP) adds scan jobs: a comma-separated list of `gitleaks`, `semgrep`, `trivy`, `checkov`, `codeql`. Use `workflow_type: security` for a workflow containing only scans (defaults to `gitleaks,semgrep,trivy`); it can also be added to `build`, `test` and `complete`. In a `complete` workflow, deployment waits for every selected scan. Each scan fails the job on findings.
+
+| Scan | Covers | Notes |
+|---|---|---|
+| `gitleaks` | secrets in git history | CLI downloaded from the release and checksum-verified (the official action needs a paid licence for organisation repos); full-history checkout. Test fixtures that look like keys will be reported; add a `.gitleaksignore`. |
+| `semgrep` | SAST | `p/default` rules, fails on ERROR severity, telemetry off |
+| `trivy` | dependency and config CVEs | fails on CRITICAL/HIGH with a fix available |
+| `checkov` | IaC (Terraform, Dockerfile, Kubernetes) | fails on any failed check, so expect findings on the first run |
+| `codeql` | SAST (GitHub) | per-language matrix; needs code scanning enabled (GitHub Advanced Security for private repos); the only job with `security-events: write` |
+
+Scan jobs always run on the runner, ignoring `container_image` and `matrix`.
+
+## Working with an existing pipeline
+
+Adding a generated workflow on top of a repo that already has CI should extend it, not replace it:
+
+1. `analyze_repo(path)` detects the stack (root and immediate subdirectories), hosting config and existing workflows, and returns `recommended_calls` with ready-to-use arguments. It is local-profile only, reads a fixed list of manifest files, returns derived facts rather than file contents, and refuses symlinks that leave the repository.
+2. `audit_github_workflow(workflow_yaml)` takes an existing workflow's contents and reports what it covers (lint, test, build, secrets-scan, sast, dependency-scan, iac-scan, deploy), what is missing, and hardening findings (no `permissions:`, deprecated artifact actions, floating `@main` refs, script injection, placeholder containers). It never rewrites the file.
+3. Add the missing scans as a **separate** file with `workflow_type: security`, and updates with `generate_dependabot_config`.
+
+Detection is heuristic (it matches commands such as `pytest` or `semgrep`); treat "missing" as "not detected".
 
 ## Best Practices
 

@@ -13,7 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GitHub Actions generator output (affects `generate_github_actions_workflow` and `devops_os.core.scaffold_gha`)**:
+  - Jobs now run on `ubuntu-latest` with `actions/setup-python`, `setup-node`, `setup-go` and `setup-java` instead of the non-existent `ghcr.io/yourorg/devops-os:latest` container. A container is now opt-in via `container_image` (`--image` on the CLI). The CLI `--image` default changed from the placeholder to empty.
+  - Action versions updated: `checkout@v7`, `setup-python@v7`, `setup-node@v7`, `setup-go@v7`, `setup-java@v6`, `upload-artifact@v7` (v3 is deprecated and fails), `codecov-action@v7`.
+  - Every workflow now has top-level `permissions: contents: read` and a `concurrency:` group (PR runs cancel superseded runs; deploys are never cancelled; reusable workflows omit it).
+  - Removed placeholder `echo` steps ("Set up build environment", SonarQube) that did nothing.
+  - Reusable workflow passes `inputs.*` to scripts through `env:` instead of interpolating them into `run:`, and declares the ArgoCD secrets it uses.
+  - ArgoCD (checksum-verified) and Flux CLIs are installed when not running in a container, since `ubuntu-latest` does not include them.
+  - `validate_image_reference` now rejects whitespace.
+  - The Docker build/push step is skipped when the repository has no `Dockerfile`, instead of failing the deploy job.
+- The server now exposes 16 tools (was 13).
+
 ### Added
+- `security_scans` option (`--security-scans`) and `security` workflow type for `generate_github_actions_workflow`: `gitleaks`, `semgrep`, `trivy`, `checkov`, `codeql` as jobs; `complete` deployments wait for them. Scanner versions are pinned and the Gitleaks download is checksum-verified.
+- New tool `generate_dependabot_config`: `.github/dependabot.yml` for chosen ecosystems (language aliases accepted), always including `github-actions`, with minor/patch updates grouped.
+- New tool `audit_github_workflow`: reports capabilities covered/missing and hardening findings for an existing workflow, without modifying it.
+- New tool `analyze_repo`: detects stack, frameworks, package manager, hosting target and existing workflows (root plus immediate subdirectories) and returns recommended tool calls. Local profile only; fixed file list, size-capped, symlink-safe, returns no file contents.
+- Rust is now handled by the GitHub Actions generator (`cargo build`/`cargo test`).
+- `deploy_target` (`--deploy-target`) and `build_output_dir` options for `generate_github_actions_workflow`: `vercel`, `cloudflare-workers`, `cloudflare-pages`, `netlify`, `render`, `github-pages`. Combinations that would silently do nothing (a target on a build/test/reusable workflow, or with `kubernetes=true`) are rejected.
+- `pin_actions` option (`--pin-actions` on the CLI) to pin actions to full commit SHAs with a `# vX.Y.Z` comment. Pins live in `scaffold_gha.ACTION_REFS`; a test fails if the generator emits an action that has no pin.
 - **MCP Dev Container Module** (`mcp_server/devcontainer_mcp.py`) with comprehensive language and tool support:
   - Multi-language support: Python, Java, Go, Node.js, Rust, Ruby, C/C++, PHP, C#, Kotlin, TypeScript, JavaScript
   - CI/CD tools: Docker, Podman, GitHub Actions, Jenkins, GitLab CI, Terraform, Kubectl, Helm

@@ -85,12 +85,30 @@ def validate_image_reference(value: str) -> str:
                 f"Image reference contains invalid character: {repr(char)}"
             )
 
+    if re.search(r"\s", value):
+        raise ValidationError("Image reference must not contain whitespace")
+
     # Basic docker reference format validation
     # Format: [registry/]name[:tag][@digest]
     # See: https://github.com/docker/distribution/blob/main/reference/reference.go
     if value.count(":") > 1 and value.count("@") == 0:
         raise ValidationError(f"Invalid image reference format: {value}")
 
+    return value
+
+
+def validate_relative_path(value: str, field_name: str) -> str:
+    """Validate a repository-relative directory path (e.g. a build output dir).
+
+    Only letters, digits, ``.``, ``_``, ``-`` and ``/`` are allowed; absolute
+    paths and ``..`` segments are rejected.
+    """
+    if not value or len(value) > 128:
+        raise ValidationError(f"{field_name} must be 1-128 characters")
+    if not re.fullmatch(r"[A-Za-z0-9._/-]+", value):
+        raise ValidationError(f"{field_name} may only contain letters, digits, '.', '_', '-' and '/'")
+    if value.startswith("/") or ".." in value.split("/"):
+        raise ValidationError(f"{field_name} must be a relative path inside the repository")
     return value
 
 
@@ -307,9 +325,33 @@ def validate_tool_inputs(tool_name: str, **kwargs) -> dict[str, Any]:
         if "workflow_type" in validated:
             validated["workflow_type"] = validate_choice(
                 validated["workflow_type"],
-                ["build", "test", "deploy", "complete", "reusable"],
+                ["build", "test", "deploy", "complete", "reusable", "security"],
                 "workflow_type",
             )
+        if validated.get("container_image"):
+            validated["container_image"] = validate_image_reference(validated["container_image"])
+        target = validated.get("deploy_target", "")
+        if target:
+            validated["deploy_target"] = validate_choice(
+                target,
+                ["vercel", "cloudflare-workers", "cloudflare-pages", "netlify", "render", "github-pages"],
+                "deploy_target",
+            )
+            if validated.get("workflow_type") not in ("deploy", "complete"):
+                raise ValidationError("deploy_target requires workflow_type 'deploy' or 'complete'")
+            if validated.get("kubernetes"):
+                raise ValidationError("deploy_target cannot be combined with kubernetes=true")
+        scans = validated.get("security_scans", "")
+        if scans:
+            valid = ["gitleaks", "semgrep", "trivy", "checkov", "codeql"]
+            for item in (x.strip().lower() for x in scans.split(",") if x.strip()):
+                validate_choice(item, valid, "security_scans")
+            if validated.get("workflow_type") not in ("build", "test", "complete", "security"):
+                raise ValidationError(
+                    "security_scans requires workflow_type 'build', 'test', 'complete' or 'security'")
+        if validated.get("build_output_dir"):
+            validated["build_output_dir"] = validate_relative_path(
+                validated["build_output_dir"], "build_output_dir")
 
     # Tool: generate_jenkins_pipeline
     elif tool_name == "generate_jenkins_pipeline":
