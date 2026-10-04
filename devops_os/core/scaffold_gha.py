@@ -323,7 +323,9 @@ def dump_workflow(workflow, args=None):
     if secrets:
         text = ("# Create these repository secrets before the first run "
                 "(Settings > Secrets and variables > Actions):\n"
-                + "".join(f"#   {name}\n" for name in secrets) + text)
+                + "".join(f"#   {name}\n" for name in secrets)
+                + "# Test your setup locally first: call the generate_deploy_preflight tool "
+                  f"(deploy_target={args.deploy_target}).\n" + text)
     if getattr(args, "pin_actions", False):
         for action, (_major, tag, sha) in ACTION_REFS.items():
             text = text.replace(f"{action}@{sha}\n", f"{action}@{sha} # {tag}\n")

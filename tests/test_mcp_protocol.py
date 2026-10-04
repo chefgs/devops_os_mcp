@@ -33,12 +33,13 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional
 # ---------------------------------------------------------------------------
-# Expected tool names (all 11 DevOps-OS tools exposed by the MCP server)
+# Expected tool names (all 12 DevOps-OS tools exposed by the MCP server)
 # ---------------------------------------------------------------------------
 
 EXPECTED_TOOLS = {
     "generate_github_actions_workflow",
     "analyze_repo",
+    "generate_deploy_preflight",
     "audit_github_workflow",
     "generate_dependabot_config",
     "generate_gitlab_ci_pipeline",

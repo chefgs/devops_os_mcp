@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The Docker build/push step is skipped when the repository has no `Dockerfile`, instead of failing the deploy job.
 - The server now exposes 16 tools (was 13).
 
+### Added (scan-first guidance and deploy preflight)
+- New tool `generate_deploy_preflight` (17th tool): a local test plan for a `deploy_target`: required secret names, a placeholder-only env template, and ordered commands marked read-only / local-build / publishes. It never runs anything or accepts credentials. The generated workflow header points to it.
+- Scan-first guidance: shared server instructions (all stdio, module-level and HTTP instances; the HTTP one previously said only "DevOps Configuration Generator") describe the flow scan -> explain -> choose -> generate -> verify. New `start` MCP prompt walks an assistant through it. `analyze_repo` now returns a plain-language `summary` and recommends the preflight step when a hosting target is detected. Instructions and prompts are advisory; clients may not follow them.
+- `analyze_repo` and the audit gap list now use capabilities covered by any workflow, not each file's own gaps.
+
 ### Fixed
 - Jenkins generator no longer hard-codes the non-existent `docker.io/yourorg/devops-os:latest` agent image: the default is `agent any`, and a Docker agent is opt-in via `container_image` (`--image` on the CLI). The Jenkins node must provide the toolchains (and Docker for image builds) when no image is given.
 - `validate_image_reference` is now an allowlist (letters, digits, `. _ / : @ -`). The old blocklist let quotes and backslashes through, which could break out of the quoted string in a generated Jenkinsfile.

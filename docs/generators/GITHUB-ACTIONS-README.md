@@ -338,6 +338,10 @@ Adding a generated workflow on top of a repo that already has CI should extend i
 
 Detection is heuristic (it matches commands such as `pytest` or `semgrep`); treat "missing" as "not detected".
 
+### Testing a deploy target on your own machine
+
+After generating a workflow with a `deploy_target`, call `generate_deploy_preflight(deploy_target, name, build_output_dir)`. It returns the secret names, a placeholder-only `.env.deploy` template and ordered commands, each marked `read-only`, `local-build` or `publishes` (changes the hosting platform, so use a test project). The tool runs nothing and must never be given credentials: you (or your AI client, with your approval) run the commands with tokens from your own shell. `act -n` validates the workflow without running it; without `-n`, `act` executes every step for real. GitHub Pages deploys use GitHub's OIDC token and cannot run locally, so only its prerequisites are checked.
+
 ## Best Practices
 
 1. **Start Simple**: Begin with a basic workflow and add complexity as needed.

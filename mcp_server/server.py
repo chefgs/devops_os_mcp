@@ -10,6 +10,7 @@ Tools exposed:
   - generate_github_actions_workflow  : Create GitHub Actions workflow YAML
   - analyze_repo                      : Detect a local repo's stack, hosting and CI; recommend tool calls
   - audit_github_workflow             : Report gaps and hardening issues in an existing workflow
+  - generate_deploy_preflight         : Local test plan for a deploy target (no credentials)
   - generate_dependabot_config        : Create .github/dependabot.yml
   - generate_gitlab_ci_pipeline       : Create a GitLab CI .gitlab-ci.yml
   - generate_jenkins_pipeline         : Create a Jenkins Declarative Pipeline
@@ -129,6 +130,47 @@ def _build_jenkins_args(
 
 
 # ---------------------------------------------------------------------------
+# Server instructions and the guided-start prompt
+# ---------------------------------------------------------------------------
+
+# One definition for every FastMCP instance (stdio, module-level and HTTP), so all
+# transports give clients the same guidance. Instructions and prompts are advisory:
+# a server cannot force a client to call tools in a particular order.
+SERVER_INSTRUCTIONS = (
+    "DevOps-OS generates DevOps automation: CI/CD workflows, Kubernetes and GitOps manifests, "
+    "SRE configs, dev containers and dependency/security configs.\n"
+    "Recommended flow - scan first, then generate:\n"
+    "1. If the project is on this machine, call analyze_repo(path) BEFORE any generate_* tool. "
+    "Summarise in plain language what the repo already has, what is missing, and 2-4 ordered next "
+    "steps, then let the user choose. Do not generate configs until they agree.\n"
+    "2. If a workflow already exists, call audit_github_workflow with its contents and add missing "
+    "pieces as separate files; never replace a working pipeline.\n"
+    "3. Generate only what the user agreed to, using the arguments analyze_repo recommended.\n"
+    "4. After a workflow with a deploy_target, offer generate_deploy_preflight so the user can test "
+    "their hosting setup locally.\n"
+    "Never ask for or accept tokens or other credentials in tool calls or chat; they stay in the "
+    "user's own environment. analyze_repo is unavailable on a remote server: ask the user to paste "
+    "their workflow files and use audit_github_workflow instead. Skip the scan only when the user "
+    "has already given full, explicit parameters or there is no existing project."
+)
+
+START_DESCRIPTION = (
+    "Scan a repository first, explain what is missing in plain language, and suggest how to use "
+    "DevOps-OS step by step before generating anything."
+)
+
+START_PROMPT = """You are helping the user adopt DevOps automation with DevOps-OS, step by step. Repository path: {path}
+
+1. Scan first. Call analyze_repo with path "{path}". If it is unavailable (remote server) or the repo is not on this machine, ask the user to paste their existing workflow files and use audit_github_workflow on them.
+2. Explain the result in plain language, in at most 8 lines: the detected stack and hosting, what CI already exists, what is missing, and any hardening findings. No jargon without a one-line explanation.
+3. Propose 2-4 next steps in priority order. Prefer the cheapest, lowest-risk wins first (dependency updates, secrets scan, then deploy automation). For each, say what it adds, what it costs the team (secrets to create, minutes of CI) and that it is a normal file in the repo that can be deleted. Never replace an existing working pipeline; add separate files.
+4. Ask which steps the user wants. Do NOT call any generate_* tool until they answer.
+5. Generate only the chosen steps, using the arguments analyze_repo recommended. After a workflow with a deploy_target, offer generate_deploy_preflight so they can test their hosting setup on their own machine.
+
+Never ask for tokens or credentials. They stay in the user's shell or repository secrets."""
+
+
+# ---------------------------------------------------------------------------
 # MCP Server Factory
 # ---------------------------------------------------------------------------
 
@@ -171,11 +213,7 @@ def create_mcp_server(config: Config | None = None) -> FastMCP:
     # Create MCP server with configuration
     _mcp = FastMCP(
         "devops-os",
-        instructions=(
-            "DevOps-OS MCP Server provides tools for generating DevOps automation "
-            "artifacts including GitHub Actions workflows, Jenkins pipelines, "
-            "Kubernetes manifests, and dev-container configurations."
-        ),
+        instructions=SERVER_INSTRUCTIONS,
     )
 
     # Register tools on the new server instance
@@ -246,6 +284,13 @@ def concurrency_limited(func):
     return wrapper
 
 
+def start(path: str = ".") -> str:
+    """Guided start: scan the repo, explain what DevOps-OS can do for it, then generate only what the user picks."""
+    if not isinstance(path, str) or len(path) > 512 or any(c in path for c in "\n\r\x00\"`"):
+        raise ValueError("path must be a single-line directory path")
+    return START_PROMPT.format(path=path)
+
+
 def _register_tools(mcp: FastMCP) -> None:
     """Register all tools on the given FastMCP instance, carrying the same
     title/annotations declared in TOOL_METADATA so this instance (used for
@@ -253,6 +298,7 @@ def _register_tools(mcp: FastMCP) -> None:
     mcp.tool(**TOOL_METADATA["generate_github_actions_workflow"])(generate_github_actions_workflow)
     mcp.tool(**TOOL_METADATA["analyze_repo"])(analyze_repo)
     mcp.tool(**TOOL_METADATA["audit_github_workflow"])(audit_github_workflow)
+    mcp.tool(**TOOL_METADATA["generate_deploy_preflight"])(generate_deploy_preflight)
     mcp.tool(**TOOL_METADATA["generate_dependabot_config"])(generate_dependabot_config)
     mcp.tool(**TOOL_METADATA["generate_jenkins_pipeline"])(generate_jenkins_pipeline)
     mcp.tool(**TOOL_METADATA["generate_gitlab_ci_pipeline"])(generate_gitlab_ci_pipeline)
@@ -261,6 +307,7 @@ def _register_tools(mcp: FastMCP) -> None:
     mcp.tool(**TOOL_METADATA["generate_sre_configs"])(generate_sre_configs)
     mcp.tool(**TOOL_METADATA["scaffold_devcontainer"])(scaffold_devcontainer)
     mcp.tool(**TOOL_METADATA["generate_unittest_config"])(generate_unittest_config)
+    mcp.prompt(name="start", title="Start here: scan my repo", description=START_DESCRIPTION)(start)
 
 
 def _build_transport_security(config: "Config") -> TransportSecuritySettings | None:
@@ -329,18 +376,14 @@ def _register_health_routes(http_mcp: FastMCP, config: "Config", token_verifier=
 # This ensures `python -m mcp_server.server` still works
 mcp = FastMCP(
     "devops-os",
-    instructions=(
-        "DevOps-OS MCP Server provides tools for generating DevOps automation "
-        "artifacts including GitHub Actions workflows, Jenkins pipelines, "
-        "Kubernetes manifests, and dev-container configurations."
-    ),
+    instructions=SERVER_INSTRUCTIONS,
 )
 
 
 # Tool metadata (title + annotations) keyed by function name. Declared once
 # here and reused both at decoration time below and inside _register_tools(),
 # so the HTTP-transport instance carries the same metadata as the stdio one.
-# All 16 tools only read input and produce text/JSON -- none touch real
+# All 17 tools only read input and produce text/JSON -- none touch real
 # infrastructure, external services, or secrets -- so openWorldHint=False and
 # destructiveHint=False across the board. update_versions is the only tool
 # that mutates server-local state (in-memory/env version config), so it's the
@@ -350,6 +393,7 @@ TOOL_METADATA: dict[str, dict] = {
     "generate_github_actions_workflow": {"title": "GitHub Actions Workflow Generator", "annotations": _RO_GENERATOR},
     "analyze_repo": {"title": "Repository Stack Analyzer", "annotations": _RO_GENERATOR},
     "audit_github_workflow": {"title": "GitHub Workflow Auditor", "annotations": _RO_GENERATOR},
+    "generate_deploy_preflight": {"title": "Deploy Target Preflight Planner", "annotations": _RO_GENERATOR},
     "generate_dependabot_config": {"title": "Dependabot Config Generator", "annotations": _RO_GENERATOR},
     "generate_jenkins_pipeline": {"title": "Jenkins Pipeline Generator", "annotations": _RO_GENERATOR},
     "generate_gitlab_ci_pipeline": {"title": "GitLab CI Pipeline Generator", "annotations": _RO_GENERATOR},
@@ -398,6 +442,9 @@ def generate_github_actions_workflow(
     Go, Java, or multi-language projects with optional Kubernetes deployment.
     Jobs run on ubuntu-latest using the official setup-* actions, with
     least-privilege `permissions:` and a `concurrency:` group.
+
+    For an existing project, run analyze_repo first (and audit_github_workflow if a
+    workflow exists) so this adds to the current setup instead of replacing it.
 
     Args:
         name: Application/workflow name (lowercase, alphanumeric + dashes)
@@ -573,6 +620,54 @@ def audit_github_workflow(workflow_yaml: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Tool: generate_deploy_preflight
+# ---------------------------------------------------------------------------
+
+@mcp.tool(**TOOL_METADATA["generate_deploy_preflight"])
+@concurrency_limited
+def generate_deploy_preflight(
+    deploy_target: str,
+    name: str = "my-app",
+    build_output_dir: str = "dist",
+) -> str:
+    """Generate a local test plan for a deploy_target workflow.
+
+    Use after generate_github_actions_workflow with a deploy_target, so the user
+    can verify their hosting setup on their own workstation before relying on the
+    workflow. Returns the required secret names, a placeholder-only .env template,
+    and ordered commands marked 'read-only', 'local-build' or 'publishes'
+    (publishes = changes the hosting platform, so use a test project).
+
+    This tool never runs anything and must never be given credentials: the user
+    (or their AI client, with the user's approval) runs the commands and keeps
+    tokens in their own shell environment.
+
+    Args:
+        deploy_target: 'vercel', 'cloudflare-workers', 'cloudflare-pages', 'netlify',
+            'render' or 'github-pages'
+        name: Application/project name used by the workflow (default: 'my-app')
+        build_output_dir: Build output directory for static targets (default: 'dist')
+
+    Returns:
+        JSON with required_secrets, env_file, checks, not_testable_locally,
+        run_whole_workflow_locally and safety
+
+    Raises:
+        ValueError: If the target, name or directory is invalid
+    """
+    try:
+        validate_tool_inputs(
+            "generate_deploy_preflight", deploy_target=deploy_target, name=name,
+            build_output_dir=build_output_dir,
+        )
+    except ValidationError as e:
+        raise ValueError(str(e)) from e
+    from devops_os.core import deploy_preflight
+
+    return json.dumps(deploy_preflight.build_plan(deploy_target, name, build_output_dir), indent=2)
+
+
+# ---------------------------------------------------------------------------
 # Tool: generate_dependabot_config
 # ---------------------------------------------------------------------------
 
@@ -588,6 +683,7 @@ def generate_dependabot_config(
     Covers the project's own dependencies (which check_security_issues does not).
     The github-actions ecosystem is always included so pinned actions stay current.
     Minor and patch updates are grouped into one PR.
+    Run analyze_repo first to pick the right ecosystems and directories.
 
     Args:
         ecosystems: Comma-separated package ecosystems or language names. Ecosystems: pip, npm,
@@ -1533,7 +1629,7 @@ if __name__ == "__main__":
         # Initialize runtime globals (response enhancer, concurrency manager)
         # used by tool handlers. create_mcp_server() is not called here because
         # it builds a separate FastMCP instance registered with only 8 of the
-        # 16 tools; the module-level `mcp` / `http_mcp` instances below already
+        # 17 tools; the module-level `mcp` / `http_mcp` instances below already
         # carry the full tool set.
         _config = config
         _response_enhancer = ResponseEnhancer(config)
@@ -1570,7 +1666,7 @@ if __name__ == "__main__":
             # Create a new FastMCP instance (auth only if remote profile)
             http_mcp_kwargs = {
                 "name": "devops-os",
-                "instructions": "DevOps Configuration Generator",
+                "instructions": SERVER_INSTRUCTIONS,
                 "host": config.host,
                 "port": config.port,
                 "streamable_http_path": config.mcp_endpoint,

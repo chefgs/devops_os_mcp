@@ -13,7 +13,7 @@ import json
 import os
 import re
 
-from devops_os.core.audit_gha import MAX_BYTES, audit_workflow
+from devops_os.core.audit_gha import EXPECTED, MAX_BYTES, audit_workflow
 
 MAX_FILE_BYTES = 512_000
 MAX_WORKFLOWS = 20
@@ -183,10 +183,11 @@ def analyze(path):
 
     # Recommendations (calls to the generator tools)
     langs = ",".join(languages)
+    app_name = re.sub(r"[^a-z0-9-]+", "-", os.path.basename(repo.root).lower()).strip("-") or "my-app"
     calls = []
     valid = [w for w in workflows if "covers" in w]
     if not workflows and languages:
-        args = {"name": re.sub(r"[^a-z0-9-]+", "-", os.path.basename(repo.root).lower()).strip("-") or "my-app",
+        args = {"name": app_name,
                 "workflow_type": "complete" if hosting or "docker" in signals else "test",
                 "languages": langs}
         if hosting:
@@ -216,11 +217,34 @@ def analyze(path):
             calls.append({"tool": "generate_dependabot_config", "arguments": args,
                           "why": "No dependabot.yml: enable automatic dependency and action updates"
                                  + (f" for {proj['dir']}/." if proj["dir"] != "." else ".")})
+    if hosting:
+        pre = {"deploy_target": hosting, "name": app_name}
+        if output_dir:
+            pre["build_output_dir"] = output_dir
+        calls.append({"tool": "generate_deploy_preflight", "arguments": pre,
+                      "why": f"{hosting} config found: get a local test plan to verify your hosting setup "
+                             "(read-only checks first, then a preview deploy) before relying on the workflow."})
     if "kubernetes" in signals:
         calls.append({"tool": "generate_k8s_config", "arguments": {},
                       "why": "Kubernetes files detected; generate_k8s_config can produce or compare manifests."})
 
+    stack = ", ".join(list(dict.fromkeys(languages)) + list(dict.fromkeys(frameworks))) or "no recognised stack"
+    if not workflows:
+        ci = "no CI workflows"
+    else:
+        ci = f"{len(workflows)} CI workflow(s)"
+        covered_all = set().union(*(set(w["covers"]) for w in workflows if "covers" in w))
+        gaps = [c for c in EXPECTED if c not in covered_all] if covered_all or any("covers" in w for w in workflows) else []
+        if gaps:
+            ci += f" (not detected: {', '.join(gaps)})"
+    summary = (f"Detected {stack}; {ci}; "
+               f"{'dependabot configured' if has_dependabot else 'no dependabot'}"
+               f"{'; hosting: ' + hosting if hosting else ''}. "
+               f"{len(calls)} suggested next step(s) in recommended_calls, in priority order: "
+               "present them to the user and generate only what they choose.")
+
     return {
+        "summary": summary,
         "path": repo.root,
         "languages": languages,
         "frameworks": list(dict.fromkeys(frameworks)),

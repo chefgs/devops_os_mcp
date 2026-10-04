@@ -31,7 +31,7 @@
 ## 📊 How It Works
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/chefgs/devops_os_mcp/main/assets/devops-os-mcp-how-it-works.svg" alt="DevOps-OS MCP Architecture: Claude, ChatGPT, and other MCP clients send natural-language requests to the DevOps-OS MCP Server, which exposes 16 tools that generate configs across six areas -- CI/CD pipelines, Kubernetes and GitOps, SRE and observability, security and hardening, dev containers and tests, and version management." width="100%" style="max-width: 1200px;"/>
+  <img src="https://raw.githubusercontent.com/chefgs/devops_os_mcp/main/assets/devops-os-mcp-how-it-works.svg" alt="DevOps-OS MCP Architecture: Claude, ChatGPT, and other MCP clients send natural-language requests to the DevOps-OS MCP Server, which exposes 17 tools that generate configs across six areas -- CI/CD pipelines, Kubernetes and GitOps, SRE and observability, security and hardening, dev containers and tests, and version management." width="100%" style="max-width: 1200px;"/>
 </div>
 
 ---
@@ -191,6 +191,17 @@ pip install -r mcp_server/requirements.txt
 # Or %APPDATA%\Claude\claude_desktop_config.json (Windows)
 # Add the MCP server configuration from GETTING-STARTED-MCP.md
 ```
+
+### Start Here: Scan First
+
+If you already have a project, begin with the **`start`** prompt (in clients that show MCP prompts, choose *Start here: scan my repo*) or just ask: *"Scan my repo and tell me how DevOps-OS can help."*
+
+1. **Scan** – `analyze_repo` reads your repo (stack, hosting config, existing CI) and, if a workflow exists, `audit_github_workflow` checks it. Nothing is generated yet.
+2. **Explain and choose** – the assistant summarises what you have and what is missing, proposes a few small steps in priority order, and waits for your choice. Existing pipelines are extended with separate files, never replaced.
+3. **Generate** – only the steps you picked.
+4. **Verify** – after a hosting deploy workflow, `generate_deploy_preflight` gives you commands to test your setup on your own machine with your own credentials (the server never sees them).
+
+The server states this flow in its MCP instructions, but a client may not follow it; the prompt makes it explicit. `analyze_repo` only works on a local server; with a remote server, paste your workflow files and use `audit_github_workflow`.
 
 ### Example Prompts
 

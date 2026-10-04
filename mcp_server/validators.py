@@ -362,6 +362,20 @@ def validate_tool_inputs(tool_name: str, **kwargs) -> dict[str, Any]:
             validated["build_output_dir"] = validate_relative_path(
                 validated["build_output_dir"], "build_output_dir")
 
+    # Tool: generate_deploy_preflight
+    elif tool_name == "generate_deploy_preflight":
+        if "name" in validated:
+            validated["name"] = validate_k8s_identifier(validated["name"], "name")
+        if "deploy_target" in validated:
+            validated["deploy_target"] = validate_choice(
+                validated["deploy_target"],
+                ["vercel", "cloudflare-workers", "cloudflare-pages", "netlify", "render", "github-pages"],
+                "deploy_target",
+            )
+        if validated.get("build_output_dir"):
+            validated["build_output_dir"] = validate_relative_path(
+                validated["build_output_dir"], "build_output_dir")
+
     # Tool: generate_jenkins_pipeline
     elif tool_name == "generate_jenkins_pipeline":
         if "name" in validated:
