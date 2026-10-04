@@ -201,6 +201,8 @@ If you already have a project, begin with the **`start`** prompt (in clients tha
 3. **Generate** – only the steps you picked.
 4. **Verify** – after a hosting deploy workflow, `generate_deploy_preflight` gives you commands to test your setup on your own machine with your own credentials (the server never sees them).
 
+Full walkthrough with example conversations, every tool and the limits: **[What You Can Do](hugo-docs/content/docs/getting-started/what-you-can-do.md)**.
+
 The server states this flow in its MCP instructions, but a client may not follow it; the prompt makes it explicit. `analyze_repo` only works on a local server; with a remote server, paste your workflow files and use `audit_github_workflow`.
 
 ### Example Prompts

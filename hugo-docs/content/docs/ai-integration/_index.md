@@ -11,8 +11,30 @@ DevOps-OS exposes all its pipeline automation tools as an **MCP (Model Context P
 
 ## Available Tools
 
-| Tool | What it generates |
-|------|-------------------|
+17 tools and one prompt. For how they fit together and example conversations, see [What You Can Do]({{< relref "/docs/getting-started/what-you-can-do" >}}).
+
+**Start here:** the `start` prompt (*Start here: scan my repo*) walks your assistant through scan → explain → choose → generate → verify. The server also states this flow in its MCP instructions, so most assistants scan before generating.
+
+| Goal | Tool | What it returns |
+|------|------|-----------------|
+| Understand | `analyze_repo` | Stack, hosting, existing CI and gaps, recommended next calls (local server only) |
+| Understand | `audit_github_workflow` | Coverage, missing capabilities and hardening findings for a workflow you paste in |
+| Pipelines | `generate_github_actions_workflow` | GitHub Actions YAML: build / test / deploy / complete / reusable / security, deploy targets, security scans, SHA pinning |
+| Pipelines | `generate_gitlab_ci_pipeline` | GitLab CI/CD pipeline (`.gitlab-ci.yml`) |
+| Pipelines | `generate_jenkins_pipeline` | Jenkins Declarative Pipeline (Jenkinsfile) |
+| Pipelines | `generate_unittest_config` | Unit-test scaffolding |
+| Deploy and run | `generate_k8s_config` | Kubernetes Deployment + Service manifests |
+| Deploy and run | `generate_argocd_config` | Argo CD Application and AppProject manifests |
+| Deploy and run | `generate_sre_configs` | Prometheus rules, Grafana dashboard, SLO manifest |
+| Deploy and run | `generate_deploy_preflight` | Local test plan for a hosting target; no credentials |
+| Security | `generate_dependabot_config` | `.github/dependabot.yml` |
+| Security | `check_security_issues` | Security status of the tool versions DevOps-OS manages |
+| Workstation | `scaffold_devcontainer` | `devcontainer.json` + `devcontainer.env.json` |
+| Versions | `get_version_config`, `check_version_updates`, `suggest_versions`, `update_versions` | Look up, check and update managed tool versions |
+
+> The JSON definitions under `skills/` (for the Anthropic and OpenAI APIs) cover the original seven generator tools only; they do not include the newer tools or options. The MCP server exposes everything above.
+
+------|-------------------|
 | `generate_github_actions_workflow` | GitHub Actions workflow YAML |
 | `generate_jenkins_pipeline` | Jenkins Declarative Pipeline (Jenkinsfile) |
 | `generate_k8s_config` | Kubernetes Deployment + Service manifests |

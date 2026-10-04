@@ -339,6 +339,9 @@ def validate_tool_inputs(tool_name: str, **kwargs) -> dict[str, Any]:
             )
         if validated.get("container_image"):
             validated["container_image"] = validate_image_reference(validated["container_image"])
+        if "k8s_method" in validated:
+            validated["k8s_method"] = validate_choice(
+                validated["k8s_method"], ["kubectl", "kustomize", "argocd", "flux"], "k8s_method")
         target = validated.get("deploy_target", "")
         if target:
             validated["deploy_target"] = validate_choice(

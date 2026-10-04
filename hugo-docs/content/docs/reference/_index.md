@@ -38,14 +38,18 @@ python -m cli.devopsos scaffold gha [options]
 | Option | Env var | Default | Description |
 |--------|---------|---------|-------------|
 | `--name NAME` | `DEVOPS_OS_GHA_NAME` | `DevOps-OS` | Workflow name |
-| `--type TYPE` | `DEVOPS_OS_GHA_TYPE` | `complete` | `build` \| `test` \| `deploy` \| `complete` \| `reusable` |
+| `--type TYPE` | `DEVOPS_OS_GHA_TYPE` | `complete` | `build` \| `test` \| `deploy` \| `complete` \| `reusable` \| `security` |
 | `--languages LANGS` | `DEVOPS_OS_GHA_LANGUAGES` | `python,javascript` | Comma-separated languages |
 | `--kubernetes` | `DEVOPS_OS_GHA_KUBERNETES` | `false` | Include Kubernetes steps |
 | `--registry URL` | `DEVOPS_OS_GHA_REGISTRY` | `ghcr.io` | Container registry |
 | `--k8s-method METHOD` | `DEVOPS_OS_GHA_K8S_METHOD` | `kubectl` | `kubectl` \| `kustomize` \| `argocd` \| `flux` |
 | `--output DIR` | `DEVOPS_OS_GHA_OUTPUT` | `.github/workflows` | Output directory |
 | `--custom-values FILE` | `DEVOPS_OS_GHA_CUSTOM_VALUES` | _(none)_ | Custom values JSON |
-| `--image IMAGE` | `DEVOPS_OS_GHA_IMAGE` | `ghcr.io/yourorg/devops-os:latest` | DevOps-OS image |
+| `--image IMAGE` | `DEVOPS_OS_GHA_IMAGE` | _(none)_ | Optional container image (default: run on `ubuntu-latest`) |
+| `--deploy-target TARGET` | `DEVOPS_OS_GHA_DEPLOY_TARGET` | _(none)_ | `vercel` \| `cloudflare-workers` \| `cloudflare-pages` \| `netlify` \| `render` \| `github-pages` |
+| `--build-output-dir DIR` | `DEVOPS_OS_GHA_BUILD_OUTPUT_DIR` | `dist` | Build output dir for static targets |
+| `--security-scans LIST` | `DEVOPS_OS_GHA_SECURITY_SCANS` | _(none)_ | `gitleaks`,`semgrep`,`trivy`,`checkov`,`codeql` |
+| `--pin-actions` | `DEVOPS_OS_GHA_PIN_ACTIONS` | `false` | Pin actions to commit SHAs |
 | `--branches BRANCHES` | `DEVOPS_OS_GHA_BRANCHES` | `main` | Trigger branches |
 | `--matrix` | `DEVOPS_OS_GHA_MATRIX` | `false` | Enable matrix builds |
 | `--env-file FILE` | `DEVOPS_OS_GHA_ENV_FILE` | _(cli dir)_ | `devcontainer.env.json` path |
@@ -93,7 +97,7 @@ python -m cli.devopsos scaffold jenkins [options]
 | `--k8s-method METHOD` | `DEVOPS_OS_JENKINS_K8S_METHOD` | `kubectl` | Deploy method |
 | `--output FILE` | `DEVOPS_OS_JENKINS_OUTPUT` | `Jenkinsfile` | Output file path |
 | `--custom-values FILE` | `DEVOPS_OS_JENKINS_CUSTOM_VALUES` | _(none)_ | Custom values JSON |
-| `--image IMAGE` | `DEVOPS_OS_JENKINS_IMAGE` | `docker.io/yourorg/devops-os:latest` | DevOps-OS image |
+| `--image IMAGE` | `DEVOPS_OS_JENKINS_IMAGE` | _(none)_ | Optional container image. Default: `agent any`. With an image, the pipeline uses a Docker agent that mounts the Docker socket and runs as root |
 | `--scm SCM` | `DEVOPS_OS_JENKINS_SCM` | `git` | `git` \| `svn` \| `none` |
 | `--parameters` | `DEVOPS_OS_JENKINS_PARAMETERS` | `false` | Add runtime parameters |
 | `--env-file FILE` | `DEVOPS_OS_JENKINS_ENV_FILE` | _(cli dir)_ | `devcontainer.env.json` path |

@@ -38,6 +38,7 @@ DevOps-OS MCP is an open-source MCP server that scaffolds production-ready CI/CD
 
 | | Feature | Description |
 |--|---------|-------------|
+| 🔎 | **Scan First, Then Generate** | Your assistant scans your repo, explains what automation is missing in plain language, and generates only the steps you pick — [→ What You Can Do]({{< relref "/docs/getting-started/what-you-can-do" >}}) |
 | 🤖 | **MCP Server (Claude & ChatGPT)** | Plug DevOps-OS tools into Claude or ChatGPT as native AI skills — [→ AI Integration]({{< relref "/docs/ai-integration" >}}) |
 | 🚀 | **CI/CD Generators** | Generate GitHub Actions, GitLab CI, and Jenkins pipelines — [→ CI/CD Generators]({{< relref "/docs/ci-cd" >}}) |
 | ☸️ | **GitOps Config Generator** | Kubernetes manifests, ArgoCD Applications, and Flux CD Kustomizations — [→ GitOps & ArgoCD]({{< relref "/docs/gitops" >}}) |
@@ -80,7 +81,8 @@ pwd
 # You'll see a wrench icon 🔧 at the bottom right
 
 # 5. Ask Claude to generate!
-# "Generate a GitHub Actions workflow for a Python Flask API with Docker and Kubernetes deployment"
+# "Scan my repo at ~/projects/my-app and tell me how DevOps-OS can help"   <- best first question
+# or: "Generate a GitHub Actions workflow for a Python Flask API with Docker and Kubernetes deployment"
 ```
 
 > [!NOTE]
@@ -106,6 +108,7 @@ pwd
 
 | Guide | Description |
 |-------|-------------|
+| [What You Can Do]({{< relref "/docs/getting-started/what-you-can-do" >}}) | **Start here:** the scan-first flow, every tool, examples, and the limits |
 | [Easy Getting Started]({{< relref "/docs/getting-started/easy-getting-started" >}}) | **Fastest way:** Copy-paste 3 commands + restart Claude |
 | [Getting Started]({{< relref "/docs/getting-started" >}}) | Step-by-step MCP setup walkthrough |
 | [MCP Quick Start]({{< relref "/docs/getting-started/mcp-quickstart" >}}) | 5-minute Claude Desktop setup |

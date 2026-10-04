@@ -601,3 +601,17 @@ def test_analyze_disabled_with_remote_profile(tmp_path, monkeypatch):
     monkeypatch.setattr(server_mod, "_config", type("C", (), {"profile": "remote"})())
     with pytest.raises(ValueError, match="remote profile"):
         analyze_repo(str(tmp_path))
+
+
+@pytest.mark.parametrize("method", ["kubectl", "kustomize", "argocd", "flux"])
+def test_every_documented_k8s_method_produces_a_deploy_step(method):
+    wf = yaml.safe_load(generate_github_actions_workflow(
+        name="demo", workflow_type="deploy", languages="python", kubernetes=True, k8s_method=method))
+    names = " ".join(s["name"] for s in wf["jobs"]["deploy"]["steps"])
+    assert {"kubectl": "Deploy to Kubernetes", "kustomize": "Kustomize", "argocd": "ArgoCD", "flux": "Flux"}[method] in names
+
+
+@pytest.mark.parametrize("bad", ["helm", "", "KUBECTL", "kubectl; rm -rf /"])
+def test_unknown_k8s_method_is_rejected_not_silently_ignored(bad):
+    with pytest.raises(ValueError):
+        generate_github_actions_workflow(name="demo", languages="python", kubernetes=True, k8s_method=bad)

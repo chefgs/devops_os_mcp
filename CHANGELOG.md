@@ -30,7 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scan-first guidance: shared server instructions (all stdio, module-level and HTTP instances; the HTTP one previously said only "DevOps Configuration Generator") describe the flow scan -> explain -> choose -> generate -> verify. New `start` MCP prompt walks an assistant through it. `analyze_repo` now returns a plain-language `summary` and recommends the preflight step when a hosting target is detected. Instructions and prompts are advisory; clients may not follow them.
 - `analyze_repo` and the audit gap list now use capabilities covered by any workflow, not each file's own gaps.
 
+### Documentation
+- New Hugo page **What You Can Do** (`hugo-docs/content/docs/getting-started/what-you-can-do.md`): the scan-first flow, worked examples, all 17 tools by goal, GitHub Actions options, local deploy testing, local vs remote behaviour, and what the MCP does not do. Linked from the README, home page, docs index, quick start and `GETTING-STARTED-MCP.md`.
+- Updated the AI Integration tool table (was 7 tools), the GitHub Actions page and CLI reference (new options, no placeholder container, current action versions, deploy targets, security scans), and the Jenkins `--image` default. The `skills/*.json` API definitions still cover the original seven generators only.
+
 ### Fixed
+- `k8s_method` is now validated (`kubectl`, `kustomize`, `argocd`, `flux`). An unknown value such as `helm` was silently ignored and produced a workflow with no Kubernetes step; the tool docstring also wrongly listed only two methods.
 - Jenkins generator no longer hard-codes the non-existent `docker.io/yourorg/devops-os:latest` agent image: the default is `agent any`, and a Docker agent is opt-in via `container_image` (`--image` on the CLI). The Jenkins node must provide the toolchains (and Docker for image builds) when no image is given.
 - `validate_image_reference` is now an allowlist (letters, digits, `. _ / : @ -`). The old blocklist let quotes and backslashes through, which could break out of the quoted string in a generated Jenkinsfile.
 - Generated deploy scripts no longer paste secrets into script text. The registry token and kubeconfig now go through `env:` and `printf`, so a secret containing quotes, newlines or `$(...)` can no longer break or inject into the step (found by running the generated scripts against stub commands, `tests/test_gha_deploy_mock.py`).

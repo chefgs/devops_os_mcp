@@ -452,7 +452,7 @@ def generate_github_actions_workflow(
             (scans only; defaults to gitleaks,semgrep,trivy) (default: 'complete')
         languages: Comma-separated languages (python, javascript, go, java, rust)
         kubernetes: Enable Kubernetes deployment stage (default: False)
-        k8s_method: 'kubectl' or 'kustomize' (default: 'kubectl')
+        k8s_method: 'kubectl', 'kustomize', 'argocd' or 'flux' (default: 'kubectl')
         branches: Trigger branch(es) (default: 'main')
         matrix: Enable job matrix for multi-version testing (default: False)
         container_image: Optional container image to run every job in. Empty (default)
@@ -489,6 +489,7 @@ def generate_github_actions_workflow(
             build_output_dir=build_output_dir,
             security_scans=security_scans,
             kubernetes=kubernetes,
+            k8s_method=k8s_method,
         )
     except ValidationError as e:
         raise ValueError(str(e)) from e

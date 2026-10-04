@@ -14,7 +14,7 @@ Get DevOps-OS running as an MCP server in Claude Desktop in under 5 minutes.
 1. Clone the repo
 2. Install dependencies
 3. Add to Claude Desktop config
-4. Generate your first pipeline with AI
+4. Scan your project, then generate with AI
 
 **Total time: ~4 minutes**
 
@@ -89,9 +89,19 @@ Replace `/Users/alice/projects/devops_os` with your actual path.
 
 ---
 
-## Step 3: Generate Your First Pipeline (2 minutes)
+## Step 3: Scan First, Then Generate (2 minutes)
 
-### Ask Claude
+### Let it look at your project
+
+If you have an existing project, start by asking Claude to scan it. Nothing is generated yet:
+
+> *Scan my repo at ~/projects/my-app and tell me how DevOps-OS can help.*
+
+Claude will call `analyze_repo`, explain what your project already has and what is missing, and suggest a few small steps in priority order. You choose; it generates only those. Some clients also list a **Start here: scan my repo** prompt that does this for you. See [What You Can Do]({{< relref "/docs/getting-started/what-you-can-do" >}}) for the full flow.
+
+No project yet? Skip to the next section.
+
+### Ask Claude to generate
 
 In Claude Desktop, ask:
 
@@ -99,7 +109,7 @@ In Claude Desktop, ask:
 
 Claude will:
 1. Call the `generate_github_actions_workflow` tool
-2. Return a ready-to-use YAML file
+2. Return a ready-to-use YAML file (jobs run on `ubuntu-latest`; no container image needed)
 3. Explain each stage
 
 ### Copy the Output
