@@ -42,13 +42,17 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
 Restart Claude Desktop. You should see a wrench icon 🔧 at the bottom right.
 
-### 3. Generate Your First Config
+### 3. Scan First, Then Generate
 
-Ask Claude:
+If you already have a project, begin with a scan so the advice fits what you have:
+
+> *"Scan my repo at ~/projects/my-app and tell me how DevOps-OS can help."*
+
+Claude explains what your project has and is missing, suggests a few small steps, and generates only the ones you choose. No project yet? Ask directly:
 
 > *"Generate a GitHub Actions workflow for a Python project with pytest, Docker build, and deployment to AWS."*
 
-Done! Claude will generate the workflow using DevOps-OS tools.
+Done! Claude will generate the workflow using DevOps-OS tools. See **[What You Can Do](hugo-docs/content/docs/getting-started/what-you-can-do.md)** for the full flow.
 
 ---
 
@@ -56,6 +60,7 @@ Done! Claude will generate the workflow using DevOps-OS tools.
 
 | Guide | For… |
 |-------|------|
+| **[What You Can Do](hugo-docs/content/docs/getting-started/what-you-can-do.md)** | The scan-first flow, every tool, examples and limits |
 | **[MCP Quick Start](hugo-docs/content/docs/getting-started/mcp-quickstart.md)** | Get running in 5 minutes with Claude Desktop |
 | **[MCP Setup & Configuration](hugo-docs/content/docs/ai-integration/mcp-setup.md)** | Deep dive: Claude, ChatGPT, HTTP endpoints, authentication, Docker deployment |
 | **[AI Integration Overview](hugo-docs/content/docs/ai-integration/_index.md)** | See all available tools and prompts |

@@ -273,12 +273,7 @@ The generated Jenkinsfile defines a declarative pipeline with:
 
 ```groovy
 pipeline {
-    agent {
-        docker {
-            image 'docker.io/yourorg/devops-os:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'
-        }
-    }
+    agent any   // or a Docker agent when --image / container_image is given
     parameters {
         // Parameters here
     }

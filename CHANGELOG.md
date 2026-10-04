@@ -13,7 +13,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GitHub Actions generator output (affects `generate_github_actions_workflow` and `devops_os.core.scaffold_gha`)**:
+  - Jobs now run on `ubuntu-latest` with `actions/setup-python`, `setup-node`, `setup-go` and `setup-java` instead of the non-existent `ghcr.io/yourorg/devops-os:latest` container. A container is now opt-in via `container_image` (`--image` on the CLI). The CLI `--image` default changed from the placeholder to empty.
+  - Action versions updated: `checkout@v7`, `setup-python@v7`, `setup-node@v7`, `setup-go@v7`, `setup-java@v6`, `upload-artifact@v7` (v3 is deprecated and fails), `codecov-action@v7`.
+  - Every workflow now has top-level `permissions: contents: read` and a `concurrency:` group (PR runs cancel superseded runs; deploys are never cancelled; reusable workflows omit it).
+  - Removed placeholder `echo` steps ("Set up build environment", SonarQube) that did nothing.
+  - Reusable workflow passes `inputs.*` to scripts through `env:` instead of interpolating them into `run:`, and declares the ArgoCD secrets it uses.
+  - ArgoCD (checksum-verified) and Flux CLIs are installed when not running in a container, since `ubuntu-latest` does not include them.
+  - `validate_image_reference` now rejects whitespace.
+  - The Docker build/push step is skipped when the repository has no `Dockerfile`, instead of failing the deploy job.
+- The server now exposes 16 tools (was 13).
+
+### Added (scan-first guidance and deploy preflight)
+- New tool `generate_deploy_preflight` (17th tool): a local test plan for a `deploy_target`: required secret names, a placeholder-only env template, and ordered commands marked read-only / local-build / publishes. It never runs anything or accepts credentials. The generated workflow header points to it.
+- Scan-first guidance: shared server instructions (all stdio, module-level and HTTP instances; the HTTP one previously said only "DevOps Configuration Generator") describe the flow scan -> explain -> choose -> generate -> verify. New `start` MCP prompt walks an assistant through it. `analyze_repo` now returns a plain-language `summary` and recommends the preflight step when a hosting target is detected. Instructions and prompts are advisory; clients may not follow them.
+- `analyze_repo` and the audit gap list now use capabilities covered by any workflow, not each file's own gaps.
+
+### Documentation
+- New Hugo page **What You Can Do** (`hugo-docs/content/docs/getting-started/what-you-can-do.md`): the scan-first flow, worked examples, all 17 tools by goal, GitHub Actions options, local deploy testing, local vs remote behaviour, and what the MCP does not do. Linked from the README, home page, docs index, quick start and `GETTING-STARTED-MCP.md`.
+- Updated the AI Integration tool table (was 7 tools), the GitHub Actions page and CLI reference (new options, no placeholder container, current action versions, deploy targets, security scans), and the Jenkins `--image` default. The `skills/*.json` API definitions still cover the original seven generators only.
+
+### Fixed
+- `k8s_method` is now validated (`kubectl`, `kustomize`, `argocd`, `flux`). An unknown value such as `helm` was silently ignored and produced a workflow with no Kubernetes step; the tool docstring also wrongly listed only two methods.
+- Jenkins generator no longer hard-codes the non-existent `docker.io/yourorg/devops-os:latest` agent image: the default is `agent any`, and a Docker agent is opt-in via `container_image` (`--image` on the CLI). The Jenkins node must provide the toolchains (and Docker for image builds) when no image is given.
+- `validate_image_reference` is now an allowlist (letters, digits, `. _ / : @ -`). The old blocklist let quotes and backslashes through, which could break out of the quoted string in a generated Jenkinsfile.
+- Generated deploy scripts no longer paste secrets into script text. The registry token and kubeconfig now go through `env:` and `printf`, so a secret containing quotes, newlines or `$(...)` can no longer break or inject into the step (found by running the generated scripts against stub commands, `tests/test_gha_deploy_mock.py`).
+- Docker image tags are lower-cased (Docker rejects upper-case repository names, which GitHub owners often have) and use the runner's `$GITHUB_ACTOR` / `$GITHUB_REPOSITORY`.
+- ArgoCD login arguments, `$GITHUB_OUTPUT` writes and kustomize overlay paths are quoted (shellcheck clean).
+- Python lint step used `pylint **/*.py`, which without `globstar` only matched one directory level; it now lints `git ls-files '*.py'`.
+- `scripts/smoke-test.py` used SDK classes that do not exist (`StdioClientTransport`) and had been failing silently behind `continue-on-error`; it now uses `stdio_client` and the CI step is enforced.
+- Added `.gitleaks.toml` allowlisting the fake credentials in test fixtures, and `.DS_Store` to `.gitignore`.
+
 ### Added
+- Guard tests: `tests/test_gha_deploy_mock.py` (runs deploy scripts against stubs), `tests/test_gha_lint.py` (actionlint + shellcheck over a generated matrix) and `tests/test_action_pins_live.py` (verifies pinned SHAs and emitted `with:` inputs against GitHub; skipped without an authenticated `gh`).
+- `security_scans` option (`--security-scans`) and `security` workflow type for `generate_github_actions_workflow`: `gitleaks`, `semgrep`, `trivy`, `checkov`, `codeql` as jobs; `complete` deployments wait for them. Scanner versions are pinned and the Gitleaks download is checksum-verified.
+- New tool `generate_dependabot_config`: `.github/dependabot.yml` for chosen ecosystems (language aliases accepted), always including `github-actions`, with minor/patch updates grouped.
+- New tool `audit_github_workflow`: reports capabilities covered/missing and hardening findings for an existing workflow, without modifying it.
+- New tool `analyze_repo`: detects stack, frameworks, package manager, hosting target and existing workflows (root plus immediate subdirectories) and returns recommended tool calls. Local profile only; fixed file list, size-capped, symlink-safe, returns no file contents.
+- Rust is now handled by the GitHub Actions generator (`cargo build`/`cargo test`).
+- `deploy_target` (`--deploy-target`; scaffolding, not tested against live hosting accounts) and `build_output_dir` options for `generate_github_actions_workflow`: `vercel`, `cloudflare-workers`, `cloudflare-pages`, `netlify`, `render`, `github-pages`. Combinations that would silently do nothing (a target on a build/test/reusable workflow, or with `kubernetes=true`) are rejected.
+- `pin_actions` option (`--pin-actions` on the CLI) to pin actions to full commit SHAs with a `# vX.Y.Z` comment. Pins live in `scaffold_gha.ACTION_REFS`; a test fails if the generator emits an action that has no pin.
 - **MCP Dev Container Module** (`mcp_server/devcontainer_mcp.py`) with comprehensive language and tool support:
   - Multi-language support: Python, Java, Go, Node.js, Rust, Ruby, C/C++, PHP, C#, Kotlin, TypeScript, JavaScript
   - CI/CD tools: Docker, Podman, GitHub Actions, Jenkins, GitLab CI, Terraform, Kubectl, Helm

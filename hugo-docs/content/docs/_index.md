@@ -25,6 +25,9 @@ Both projects share the same **core scaffold modules**. Choose based on your use
 
 ### Choose your path:
 
+**🔎 Not sure what you need?**
+> Read [What You Can Do]({{< relref "/docs/getting-started/what-you-can-do" >}}) — the scan-first flow, every tool, worked examples, and what the MCP does *not* do.
+
 **👶 Beginner (New to DevOps)?**
 > Start with [Beginner's Guide]({{< relref "/docs/getting-started/beginners-guide" >}}) — explains concepts in plain English with real-world analogies. No jargon!
 
@@ -38,6 +41,7 @@ Both projects share the same **core scaffold modules**. Choose based on your use
 
 | Section | What you'll find |
 |---------|-----------------|
+| [What You Can Do]({{< relref "/docs/getting-started/what-you-can-do" >}}) | **Overview:** scan → explain → choose → generate → verify, with all 17 tools |
 | [Beginner's Guide]({{< relref "/docs/getting-started/beginners-guide" >}}) | **Start here if new:** Plain English explanations, real-world analogies, common questions |
 | [Easy Getting Started]({{< relref "/docs/getting-started/easy-getting-started" >}}) | **Fastest way:** Copy-paste 3 commands + restart Claude |
 | [Getting Started]({{< relref "/docs/getting-started" >}}) | Detailed walkthrough: install, configure, generate |

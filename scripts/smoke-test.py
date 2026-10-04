@@ -17,7 +17,7 @@ import sys
 import os
 import json
 import argparse
-import subprocess
+from contextlib import AsyncExitStack
 import asyncio
 import time
 from pathlib import Path
@@ -25,8 +25,7 @@ from pathlib import Path
 # Try to import MCP SDK
 try:
     from mcp import ClientSession
-    from mcp.client.stdio import StdioClientTransport
-    from mcp.client.streamable_http import StreamableHTTPTransport
+    from mcp.client.stdio import StdioServerParameters, stdio_client
 except ImportError as e:
     print(f"ERROR: MCP SDK not installed. Install with: pip install mcp")
     print(f"Details: {e}")
@@ -48,31 +47,22 @@ class SmokeTest:
         self.port = port
         self.endpoint = endpoint
         self.session = None
-        
+        self._stack = None
+
     async def connect_stdio(self):
-        """Connect via stdio transport."""
+        """Connect via stdio transport (the SDK spawns and owns the server process)."""
         print("[*] Starting MCP server on stdio...")
-        
-        # Start the server as a subprocess
-        env = {**os.environ, "DEVOPS_OS_TRANSPORT": "stdio"}
-        process = subprocess.Popen(
-            [sys.executable, "-m", "mcp_server.server"],
-            env=env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        params = StdioServerParameters(
+            command=sys.executable,
+            args=["-m", "mcp_server.server"],
+            env={**os.environ, "DEVOPS_OS_TRANSPORT": "stdio"},
         )
-        
-        # Create transport
-        transport = StdioClientTransport(process)
-        self.session = ClientSession(transport)
-        
-        # Connect and initialize
+        self._stack = AsyncExitStack()
+        read, write = await self._stack.enter_async_context(stdio_client(params))
+        self.session = await self._stack.enter_async_context(ClientSession(read, write))
         print("[*] Initializing MCP session...")
-        await self.session.__aenter__()
-        
-        return process
-    
+        await self.session.initialize()
+
     async def connect_http(self):
         """Connect via HTTP transport."""
         print(f"[*] Connecting to HTTP server at {self.host}:{self.port}{self.endpoint}...")
@@ -109,6 +99,9 @@ class SmokeTest:
             "generate_github_actions_workflow",
             "generate_k8s_config",
             "scaffold_devcontainer",
+            "generate_dependabot_config",
+            "audit_github_workflow",
+            "analyze_repo",
         }
         
         discovered_names = {t.name for t in tools.tools}
@@ -170,13 +163,9 @@ class SmokeTest:
         print("SMOKE TEST: STDIO TRANSPORT")
         print("=" * 60)
         
-        process = None
         try:
-            process = await self.connect_stdio()
-            
-            # Give server time to start
-            await asyncio.sleep(1)
-            
+            await self.connect_stdio()
+
             # Run tests
             tests = [
                 ("Tool Discovery", self.test_tool_discovery()),
@@ -201,17 +190,11 @@ class SmokeTest:
             return {"Connection": "FAIL"}
             
         finally:
-            if self.session:
+            if self._stack:
                 try:
-                    await self.session.__aexit__(None, None, None)
-                except:
+                    await self._stack.aclose()
+                except Exception:
                     pass
-            if process:
-                process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except:
-                    process.kill()
     
     async def run_http_tests(self):
         """Run tests for HTTP transport."""

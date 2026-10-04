@@ -1,0 +1,12 @@
+# Gitleaks configuration. Keeps the default rules and only allowlists test
+# files, which contain obviously fake credentials as validation fixtures
+# (e.g. "secret123456789"). Real secrets anywhere else are still reported.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials used as fixtures in tests"
+paths = [
+  '''mcp_server/test_.*\.py''',
+  '''tests/.*\.py''',
+]
